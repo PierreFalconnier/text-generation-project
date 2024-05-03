@@ -27,6 +27,7 @@ class DatasetShakespeare(torch.utils.data.Dataset):
     def __len__(self):
         # account for non-overlapping sequences, best approach?
         return len(self.words_indexes) // self.sequence_length
+        # return len(self.words_indexes) - self.sequence_length
 
     def __getitem__(self, index):
         start_index = index * self.sequence_length
@@ -34,6 +35,11 @@ class DatasetShakespeare(torch.utils.data.Dataset):
 
         input_indices = self.words_indexes[start_index:end_index]
         target_indices = self.words_indexes[start_index + 1 : end_index + 1]
+
+        # input_indices = self.words_indexes[index : index + self.sequence_length]
+        # target_indices = self.words_indexes[
+        #     index + 1 : index + self.sequence_length + 1
+        # ]
 
         return torch.tensor(input_indices), torch.tensor(target_indices)
 
@@ -53,7 +59,7 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "shakespeare"
 
-    dataset = DatasetShakespeare(folder_path=folder_path, sequence_length=25)
+    dataset = DatasetShakespeare(folder_path=folder_path, sequence_length=10)
 
     print(dataset[0][0])
     print(dataset[0][0].shape)
@@ -61,3 +67,8 @@ if __name__ == "__main__":
     print(dataset[0][1].shape)
 
     print(len(dataset))
+
+    for k in range(10):
+        print(dataset[k][0])
+
+    print(dataset.word_to_index)
