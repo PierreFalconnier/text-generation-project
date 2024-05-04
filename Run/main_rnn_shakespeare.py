@@ -12,13 +12,13 @@ if __name__ == "__main__":
 
     # Hyperparams
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--sequence-length", type=int, default=5)
-    parser.add_argument("--embedding-dim", type=int, default=None)
-    parser.add_argument("--hidden-dim", type=int, default=100)
-    parser.add_argument("--num-layers", type=int, default=1)
-    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--embedding-dim", type=int, default=128)
+    parser.add_argument("--hidden-dim", type=int, default=128)
+    parser.add_argument("--num-layers", type=int, default=3)
+    parser.add_argument("--dropout", type=float, default=0.2)
     args = parser.parse_args()
 
     # IMPORTATIONS
@@ -56,6 +56,7 @@ if __name__ == "__main__":
     )
     LOG_DIR = ROOT / "Run" / "Results" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"LOG_DIR: {LOG_DIR}")
     writer = SummaryWriter(log_dir=LOG_DIR)
 
     #   TRAIN
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         train_loss = 0.0
         state_h = None
 
-        for x, y in tqdm(dataloader):
+        for x, y in dataloader:
             x, y = x.to(device), y.to(device)
 
             if state_h is None or state_h.size(1) != x.size(0):
@@ -103,8 +104,8 @@ if __name__ == "__main__":
         list_text = model.generate(
             dataset,
             device=device,
-            text="What is your name?",
-            total_length=50,
+            text="Where are you Harry?",
+            total_length=100,
         )
         text = " ".join(list_text)
         writer.add_scalars("loss", {"train": train_loss}, epoch)
