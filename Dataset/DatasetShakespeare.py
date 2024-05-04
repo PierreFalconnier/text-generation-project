@@ -16,6 +16,7 @@ class DatasetShakespeare(torch.utils.data.Dataset):
         self.vocab_size = len(self.uniq_words)
 
     def load_words(self):
+        # with open(self.folder_path / "goblet_book.txt", "r") as file:
         with open(self.folder_path / "shakespeare.txt", "r") as file:
             text = file.read()
         return text.split()
