@@ -53,7 +53,7 @@ class LSTM(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_dim),
         )
 
-    def generate(self, dataset, device, text, total_length=100):
+    def generate(self, dataset, device, text, total_length=100, temperature=1.0):
         self.eval()
 
         words = text.split(" ")
@@ -68,7 +68,7 @@ class LSTM(nn.Module):
 
             y_pred, (state_h, state_c) = self(x, (state_h, state_c))
 
-            last_word_logits = y_pred[0][-1]
+            last_word_logits = y_pred[0][-1] / temperature
             p = (
                 torch.nn.functional.softmax(last_word_logits, dim=0)
                 .detach()
