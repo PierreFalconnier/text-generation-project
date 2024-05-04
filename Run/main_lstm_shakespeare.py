@@ -12,13 +12,13 @@ if __name__ == "__main__":
 
     # Hyperparams
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=500)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--sequence-length", type=int, default=5)
     parser.add_argument("--embedding-dim", type=int, default=128)
     parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--num-layers", type=int, default=3)
-    parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--dropout", type=float, default=0)
     args = parser.parse_args()
 
     # IMPORTATIONS
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         sys.path.append(str(ROOT))
 
     from Dataset.DatasetShakespeare import DatasetShakespeare as Dataset
-    from Models.RNN import RNN
+    from Models.LSTM import LSTM
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -60,13 +60,12 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir=LOG_DIR)
 
     #   TRAIN
-    model = RNN(
+    model = LSTM(
         vocab_size=dataset.vocab_size,
         hidden_dim=args.hidden_dim,
         embedding_dim=args.embedding_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
-        nonlinearity="tanh",
     ).to(device)
     criterion = nn.CrossEntropyLoss()  # include softmax !
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -75,19 +74,21 @@ if __name__ == "__main__":
         model.train()
         train_loss = 0.0
         state_h = None
+        state_c = None
 
         for x, y in dataloader:
             x, y = x.to(device), y.to(device)
 
             if state_h is None or state_h.size(1) != x.size(0):
                 # init state with current batch size
-                state_h = model.init_state(x.size(0)).to(device)
+                state_h, state_c = model.init_state(x.size(0))
+                state_h, state_c = state_h.to(device), state_c.to(device)
 
             if model.embedding_dim is None:
                 x = F.one_hot(x, num_classes=model.vocab_size).float()
 
             optimizer.zero_grad()
-            y_pred, state_h = model(x, state_h)
+            y_pred, (state_h, state_c) = model(x, (state_h, state_c))
 
             # y_pred shape = B,  sequence_length, vocabsize
             # y_pred to B, vocabsize, sequence_length
@@ -98,6 +99,7 @@ if __name__ == "__main__":
 
             # avoid backprop across batchs
             state_h = state_h.detach()
+            state_c = state_c.detach()
 
         # Validation, generation, logger
         model.eval()

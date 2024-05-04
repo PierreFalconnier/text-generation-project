@@ -4,7 +4,7 @@
 **/*.png
 
 Data/shakespeare/*
-
+Run/Results/
 **/__pycache__/
 *.pyc
 
