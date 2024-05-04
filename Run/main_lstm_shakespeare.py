@@ -19,6 +19,8 @@ if __name__ == "__main__":
     parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--num-layers", type=int, default=3)
     parser.add_argument("--dropout", type=float, default=0)
+    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--temperature", type=float, default=1.0)
     args = parser.parse_args()
 
     # IMPORTATIONS
@@ -68,7 +70,7 @@ if __name__ == "__main__":
         dropout=args.dropout,
     ).to(device)
     criterion = nn.CrossEntropyLoss()  # include softmax !
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     for epoch in tqdm(range(args.epochs)):
         model.train()
@@ -108,6 +110,7 @@ if __name__ == "__main__":
             device=device,
             text="Where are you Harry?",
             total_length=100,
+            temperature=args.temperature,
         )
         text = " ".join(list_text)
         writer.add_scalars("loss", {"train": train_loss}, epoch)
