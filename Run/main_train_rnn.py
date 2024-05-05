@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--dataset", type=str, default="shakespeare.txt")
+    parser.add_argument("--mode", type=str, default="word")
     args = parser.parse_args()
 
     # IMPORTATIONS
@@ -42,8 +43,7 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path,
-        sequence_length=args.sequence_length,
+        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode
     )
 
     # split
@@ -172,3 +172,26 @@ if __name__ == "__main__":
         text = " ".join(list_text)
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
         writer.add_text("text_generation", text, epoch)
+
+    # eval on the test set
+
+    model.load_state_dict(best_state_dict)
+    model.to(device)
+
+    model.eval()
+    state_h_val = None
+    with torch.no_grad():
+        test_loss = 0.0
+        for x, y in test_dataloader:
+            x, y = x.to(device), y.to(device)
+            if state_h_val is None or state_h_val.size(1) != x.size(0):
+                state_h_val = model.init_state(x.size(0)).to(device)
+            if model.embedding_dim is None:
+                x = F.one_hot(x, num_classes=model.vocab_size).float()
+            y_pred, state_h_val = model(x, state_h_val)
+            loss = criterion(y_pred.permute(0, 2, 1), y)
+            optimizer.step()
+            test_loss += loss.item()
+    test_loss /= len(test_dataloader)
+
+    print(f"Test loss = {test_loss}")
