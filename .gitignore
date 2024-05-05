@@ -3,7 +3,7 @@
 **/*.zip
 **/*.png
 
-Data/shakespeare/*
+Data/txt/*
 Run/Results/
 **/__pycache__/
 *.pyc
