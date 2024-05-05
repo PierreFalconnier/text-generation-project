@@ -2,7 +2,7 @@
 **/*.npz
 **/*.zip
 **/*.png
-
+**/*.sh
 Data/txt/*
 Run/Results/
 **/__pycache__/
