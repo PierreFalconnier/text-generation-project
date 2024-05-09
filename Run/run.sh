@@ -1,0 +1,1 @@
+/bin/python3.10 /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/main_train_lstm.py
