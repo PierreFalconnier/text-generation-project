@@ -110,15 +110,15 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     # DATASET
-    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
+    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
 
-    dataset = Dataset(folder_path=folder_path, sequence_length=25, mode="character")
+    dataset = Dataset(folder_path=folder_path, sequence_length=1000, mode="character")
 
     #   TRAIN
     model = LSTM(
         vocab_size=dataset.vocab_size,
-        hidden_dim=100,
-        embedding_dim=None,
+        hidden_dim=1024,
+        embedding_dim=256,
         num_layers=1,
         dropout=0.0,
     ).to(device)
@@ -130,3 +130,7 @@ if __name__ == "__main__":
         total_length=100,
     )
     print("".join(list_text))
+
+    print(model)
+    print("Trainable parameters:")
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))

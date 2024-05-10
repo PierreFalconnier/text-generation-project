@@ -8,6 +8,7 @@ class DatasetText(torch.utils.data.Dataset):
         self.folder_path = folder_path
         self.mode = mode
         self.words = self.load_words()
+
         self.uniq_words = self.get_uniq_words()
 
         self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
@@ -32,7 +33,7 @@ class DatasetText(torch.utils.data.Dataset):
 
     def __len__(self):
         # account for non-overlapping sequences
-        return len(self.words_indexes) // self.sequence_length
+        return len(self.words_indexes) // (self.sequence_length + 1)
 
     def __getitem__(self, index):
         start_index = index * self.sequence_length
@@ -58,16 +59,13 @@ if __name__ == "__main__":
 
     # DATASET
     # folder_path = ROOT / "Data" / "txt" / "goblet_book.txt"
-    # folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
-    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
+    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+    # folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
-    dataset = DatasetText(folder_path=folder_path, sequence_length=25, mode="character")
-    print(type(dataset.words))
-    print(dataset.uniq_words)
+    dataset = DatasetText(
+        folder_path=folder_path, sequence_length=100, mode="character"
+    )
 
     print(dataset[0][0])
-    print(dataset[0][0].shape)
-    print(dataset[0][1])
-    print(dataset[0][1].shape)
-
-    print(len(dataset))
+    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
+    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
