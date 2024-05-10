@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, random_split
 from torch import nn, optim
 import torch.nn.functional as F
 from tqdm import tqdm
+from misspelling_percentage import calculate_misspelling_percentage
 
 torch.manual_seed(42)
 
@@ -16,15 +17,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--sequence-length", type=int, default=5)
+    parser.add_argument("--sequence-length", type=int, default=25)
     parser.add_argument("--embedding-dim", type=int, default=128)
     parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--num-layers", type=int, default=3)
     parser.add_argument("--dropout", type=float, default=0)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--dataset", type=str, default="shakespeare.txt")
-    parser.add_argument("--mode", type=str, default="word")
+    parser.add_argument("--dataset", type=str, default="harry_potter.txt")
+    parser.add_argument("--mode", type=str, default="character")
 
     args = parser.parse_args()
 
@@ -47,6 +48,10 @@ if __name__ == "__main__":
     dataset = Dataset(
         folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode
     )
+    if args.mode == "word":
+        joiner_str = " "
+    elif args.mode == "character":
+        joiner_str = ""
 
     # split
     total_size = len(dataset)
@@ -104,6 +109,10 @@ if __name__ == "__main__":
     best_state_dict = model.state_dict()
     SAVED_MODEL_DIR = ROOT / "Run" / "Results" / "Saved_models" / name
     SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+    early_stopping_tol = 10  # num of epochs
+    prev_val_loss = float("inf")
+    counter = 0
 
     for epoch in tqdm(range(args.epochs)):
         model.train()
@@ -165,6 +174,7 @@ if __name__ == "__main__":
         val_loss /= len(val_dataloader)
 
         # early stopping
+
         if best_val_loss > val_loss:
             best_val_loss = val_loss
             best_state_dict = model.state_dict().copy()
@@ -177,9 +187,26 @@ if __name__ == "__main__":
             total_length=100,
             temperature=args.temperature,
         )
-        text = " ".join(list_text)
+        text = joiner_str.join(list_text)
+        misspelling_percentage = calculate_misspelling_percentage(text)
+
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
+        writer.add_scalars(
+            "misspelling_percentage",
+            {"misspelling_percentage": misspelling_percentage},
+            epoch,
+        )
         writer.add_text("text_generation", text, epoch)
+
+        # stop if no amelioration for early_stopping_tol epochs
+        if val_loss > prev_val_loss:
+            counter += 1
+            if counter == early_stopping_tol:
+                break
+        else:
+            counter = 0
+
+        prev_val_loss = val_loss
 
     # eval on the test set
 
@@ -204,4 +231,8 @@ if __name__ == "__main__":
             test_loss += loss.item()
     test_loss /= len(test_dataloader)
 
-    print(f"Test loss = {test_loss}")
+    with open(str(ROOT / "Run" / "Results" / "Saved_results" / name), "w") as file:
+        print(f"Best val loss: {best_val_loss}", file=file)
+        print(best_val_loss, file=file)
+        print(f"Test loss:", file=file)
+        print(test_loss, file=file)
