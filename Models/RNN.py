@@ -103,26 +103,44 @@ if __name__ == "__main__":
     from Dataset.DatasetText import DatasetText as Dataset
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     print(f"Using device: {device}")
 
     # DATASET
-    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
-    dataset = Dataset(folder_path=folder_path, sequence_length=25, mode="character")
+    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+    dataset = Dataset(folder_path=folder_path, sequence_length=100, mode="character")
 
     #   TRAIN
     model = RNN(
         vocab_size=dataset.vocab_size,
-        hidden_dim=100,
-        embedding_dim=None,
+        hidden_dim=1024,
+        embedding_dim=256,
         num_layers=1,
         dropout=0.0,
         nonlinearity="tanh",
     ).to(device)
 
+    model.eval()
     list_text = model.generate(
         dataset,
         device=device,
         text="This is a test to make sure that",
-        total_length=100,
+        total_length=1000,
     )
     print("".join(list_text))
+
+    print(model)
+    print("Trainable parameters:")
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+
+    from torch.utils.data import DataLoader
+
+    loader = DataLoader(dataset, batch_size=64)
+
+    for x, y in loader:
+        state_h = model.init_state(x.size(0))
+        print(x.shape)
+        print(y.shape)
+        y_pred, state_h = model(x, state_h)
+        print(y_pred.shape)
+        break

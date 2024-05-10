@@ -15,19 +15,23 @@ if __name__ == "__main__":
 
     # Hyperparams
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--sequence-length", type=int, default=25)
-    parser.add_argument("--embedding-dim", type=int, default=128)
-    parser.add_argument("--hidden-dim", type=int, default=128)
-    parser.add_argument("--num-layers", type=int, default=3)
+    parser.add_argument("--sequence-length", type=int, default=100)
+    parser.add_argument("--embedding-dim", type=int, default=0)
+    parser.add_argument("--hidden-dim", type=int, default=1024)
+    parser.add_argument("--num-layers", type=int, default=1)
     parser.add_argument("--dropout", type=float, default=0)
+    parser.add_argument("--optim", type=str, default="adam")
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--dataset", type=str, default="harry_potter.txt")
+    parser.add_argument("--dataset", type=str, default="shakespeare.txt")
     parser.add_argument("--mode", type=str, default="character")
 
     args = parser.parse_args()
+    if args.embedding_dim == 0:
+        args.embedding_dim = None
+    print(args)
 
     # IMPORTATIONS
     # include the path of the dataset(s) and the model(s)
@@ -38,7 +42,6 @@ if __name__ == "__main__":
 
     from Dataset.DatasetText import DatasetText as Dataset
     from Models.LSTM import LSTM
-    from Models.RNN import RNN
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -65,7 +68,7 @@ if __name__ == "__main__":
 
     # DATALOADERS
     train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True
+        train_dataset, batch_size=args.batch_size, shuffle=False
     )
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size)
@@ -79,6 +82,8 @@ if __name__ == "__main__":
         + str(args.batch_size)
         + "_"
         + str(args.sequence_length)
+        + "_"
+        + str(args.embedding_dim)
         + "_"
         + str(args.lr)[2:]
         + "_"
@@ -102,8 +107,17 @@ if __name__ == "__main__":
         dropout=args.dropout,
     ).to(device)
 
+    print(model)
+    print("Trainable parameters:")
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+
     criterion = nn.CrossEntropyLoss()  # include softmax !
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    if args.optim == "adagrad":
+        optimizer = optim.Adagrad(model.parameters(), lr=args.lr)
+    elif args.optim == "adam":
+        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    else:
+        raise NotImplementedError
 
     best_val_loss = float("inf")
     best_state_dict = model.state_dict()
@@ -137,6 +151,11 @@ if __name__ == "__main__":
             # y_pred to B, vocabsize, sequence_length
             loss = criterion(y_pred.permute(0, 2, 1), y)
             loss.backward()
+
+            # # clip gradients
+            # max_norm = 5.0
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+
             optimizer.step()
             train_loss += loss.item()
 
@@ -167,27 +186,20 @@ if __name__ == "__main__":
                 )
 
                 loss = criterion(y_pred.permute(0, 2, 1), y)
-                optimizer.step()
                 val_loss += loss.item()
 
         train_loss /= len(train_dataloader)
         val_loss /= len(val_dataloader)
 
-        # early stopping
-
-        if best_val_loss > val_loss:
-            best_val_loss = val_loss
-            best_state_dict = model.state_dict().copy()
-            torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
-
+        init_text = "Where are you?"
         list_text = model.generate(
             dataset,
             device=device,
-            text="Where are you?",
-            total_length=100,
+            text=init_text,
+            total_length=1000,
             temperature=args.temperature,
         )
-        text = joiner_str.join(list_text)
+        text = joiner_str.join(list_text[len(init_text) :])
         misspelling_percentage = calculate_misspelling_percentage(text)
 
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
@@ -198,13 +210,19 @@ if __name__ == "__main__":
         )
         writer.add_text("text_generation", text, epoch)
 
+        # early stopping
         # stop if no amelioration for early_stopping_tol epochs
-        if val_loss > prev_val_loss:
-            counter += 1
-            if counter == early_stopping_tol:
-                break
-        else:
+        if best_val_loss > val_loss:
+            best_val_loss = val_loss
+            best_state_dict = model.state_dict().copy()
+            torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
             counter = 0
+        else:
+            counter += 1
+
+        if counter == early_stopping_tol:
+            print("stopped early")
+            break
 
         prev_val_loss = val_loss
 
@@ -232,7 +250,7 @@ if __name__ == "__main__":
     test_loss /= len(test_dataloader)
 
     with open(str(ROOT / "Run" / "Results" / "Saved_results" / name), "w") as file:
-        print(f"Best val loss: {best_val_loss}", file=file)
+        print(f"Best val loss:", file=file)
         print(best_val_loss, file=file)
         print(f"Test loss:", file=file)
         print(test_loss, file=file)
