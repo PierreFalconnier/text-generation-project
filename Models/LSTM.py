@@ -53,10 +53,25 @@ class LSTM(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_dim),
         )
 
-    def generate(self, dataset, device, text, total_length=100, temperature=1.0):
+    # CORRIGER LA FONCTION POUR GERER LE CAS GENERATION DE CHARACTERS
+    def generate(
+        self,
+        dataset,
+        device,
+        text,
+        total_length=1000,
+        temperature=1.0,
+        mode="character",
+    ):
         self.eval()
 
-        words = text.split(" ")
+        if mode == "word":
+            words = text.split(" ")
+        elif mode == "character":
+            words = list(text)
+        else:
+            raise NotImplementedError
+
         state_h, state_c = self.init_state(1)
         state_h, state_c = state_h.to(device), state_c.to(device)
 
@@ -89,17 +104,15 @@ if __name__ == "__main__":
     ROOT = CUR_DIR_PATH.parents[1]
     if str(ROOT) not in sys.path:
         sys.path.append(str(ROOT))
-    from Dataset.DatasetShakespeare import DatasetShakespeare as Dataset
+    from Dataset.DatasetText import DatasetText as Dataset
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # DATASET
-    folder_path = ROOT / "Data" / "shakespeare"
-    dataset = Dataset(
-        folder_path=folder_path,
-        sequence_length=5,
-    )
+    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
+
+    dataset = Dataset(folder_path=folder_path, sequence_length=25, mode="character")
 
     #   TRAIN
     model = LSTM(
@@ -116,4 +129,4 @@ if __name__ == "__main__":
         text="This is a test to make sure that",
         total_length=100,
     )
-    print(" ".join(list_text))
+    print("".join(list_text))

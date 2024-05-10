@@ -57,10 +57,11 @@ if __name__ == "__main__":
         sys.path.append(str(ROOT))
 
     # DATASET
-    # folder_path = ROOT / "Data" / "shakespeare" / "goblet_book.txt"
-    folder_path = ROOT / "Data" / "shakespeare" / "shakespeare.txt"
+    # folder_path = ROOT / "Data" / "txt" / "goblet_book.txt"
+    # folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
-    dataset = DatasetText(folder_path=folder_path, sequence_length=10, mode="word")
+    dataset = DatasetText(folder_path=folder_path, sequence_length=25, mode="character")
     print(type(dataset.words))
     print(dataset.uniq_words)
 
@@ -70,8 +71,3 @@ if __name__ == "__main__":
     print(dataset[0][1].shape)
 
     print(len(dataset))
-
-    for k in range(5):
-        print(dataset[k][0])
-
-    print(dataset.word_to_index)
