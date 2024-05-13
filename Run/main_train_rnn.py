@@ -16,10 +16,10 @@ if __name__ == "__main__":
     # Hyperparams
     parser = argparse.ArgumentParser()
     # same defaults values as lab4
-    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--sequence-length", type=int, default=100)
-    parser.add_argument("--embedding-dim", type=int, default=256)
+    parser.add_argument("--embedding-dim", type=int, default=0)
     parser.add_argument("--hidden-dim", type=int, default=1024)
     parser.add_argument("--num-layers", type=int, default=1)
     parser.add_argument("--dropout", type=float, default=0)
@@ -33,6 +33,7 @@ if __name__ == "__main__":
     if args.embedding_dim == 0:
         args.embedding_dim = None
     print(args)
+
     # IMPORTATIONS
     # include the path of the dataset(s) and the model(s)
     CUR_DIR_PATH = Path(__file__)
@@ -68,7 +69,7 @@ if __name__ == "__main__":
 
     # DATALOADERS
     train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=False
+        train_dataset, batch_size=args.batch_size, shuffle=True
     )
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size)
@@ -125,21 +126,18 @@ if __name__ == "__main__":
     SAVED_MODEL_DIR = ROOT / "Run" / "Results" / "Saved_models" / name
     SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    early_stopping_tol = 10  # num of epochs
+    early_stopping_tol = 5  # num of epochs
     prev_val_loss = float("inf")
     counter = 0
 
     for epoch in tqdm(range(args.epochs)):
         model.train()
         train_loss = 0.0
-        state_h, state_h_val = None, None
 
         for x, y in train_dataloader:
             x, y = x.to(device), y.to(device)
 
-            if state_h is None or state_h.size(1) != x.size(0):
-                # init state with current batch size
-                state_h = model.init_state(x.size(0)).to(device)
+            state_h = model.init_state(x.size(0)).to(device)
 
             if model.embedding_dim is None:
                 x = F.one_hot(x, num_classes=model.vocab_size).float()
@@ -159,9 +157,6 @@ if __name__ == "__main__":
             optimizer.step()
             train_loss += loss.item()
 
-            # avoid backprop across batchs
-            state_h = state_h.detach()
-
         # Validation, generation, logger
         model.eval()
 
@@ -171,8 +166,7 @@ if __name__ == "__main__":
 
                 x, y = x.to(device), y.to(device)
 
-                if state_h_val is None or state_h_val.size(1) != x.size(0):
-                    state_h_val = model.init_state(x.size(0)).to(device)
+                state_h_val = model.init_state(x.size(0)).to(device)
 
                 if model.embedding_dim is None:
                     x = F.one_hot(x, num_classes=model.vocab_size).float()
@@ -195,8 +189,7 @@ if __name__ == "__main__":
             temperature=args.temperature,
             mode=args.mode,
         )
-        text = joiner_str.join(list_text)
-        print(text)
+        text = joiner_str.join(list_text[len(init_text) :])
         misspelling_percentage = calculate_misspelling_percentage(text)
 
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
@@ -245,7 +238,7 @@ if __name__ == "__main__":
     test_loss /= len(test_dataloader)
 
     with open(str(ROOT / "Run" / "Results" / "Saved_results" / name), "w") as file:
-        print(f"Best val loss: {best_val_loss}", file=file)
+        print(f"Best val loss:", file=file)
         print(best_val_loss, file=file)
         print(f"Test loss:", file=file)
         print(test_loss, file=file)
