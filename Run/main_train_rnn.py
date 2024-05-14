@@ -90,9 +90,7 @@ if __name__ == "__main__":
         + "_"
         + str(args.hidden_dim)
         + "_"
-        + str(args.dataset)
-        + "_"
-        + str(args.mode)
+        + str(args.dataset[:-4])
     )
     LOG_DIR = ROOT / "Run" / "Results" / "Logs" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)

@@ -7,7 +7,7 @@ import numpy as np
 class LSTM(nn.Module):
     def __init__(
         self,
-        vocab_size,
+        vocab_size=0,
         hidden_dim=100,
         embedding_dim=None,
         num_layers=1,

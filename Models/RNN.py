@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class RNN(nn.Module):
     def __init__(
         self,
-        vocab_size,
+        vocab_size=0,
         hidden_dim=100,
         embedding_dim=None,
         num_layers=1,

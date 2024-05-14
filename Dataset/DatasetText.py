@@ -18,7 +18,7 @@ class DatasetText(torch.utils.data.Dataset):
         self.vocab_size = len(self.uniq_words)
 
     def load_words(self):
-        with open(self.folder_path, "r") as file:
+        with open(self.folder_path, "r", encoding="utf-8") as file:
             text = file.read()
         if self.mode == "word":
             return text.split()
@@ -59,8 +59,8 @@ if __name__ == "__main__":
 
     # DATASET
     # folder_path = ROOT / "Data" / "txt" / "goblet_book.txt"
-    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
-    # folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
+    # folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
     dataset = DatasetText(
         folder_path=folder_path, sequence_length=100, mode="character"
@@ -69,3 +69,6 @@ if __name__ == "__main__":
     print(dataset[0][0])
     print("".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
     print("".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+
+    # print("".join(dataset.words))
+    print(dataset.uniq_words)
