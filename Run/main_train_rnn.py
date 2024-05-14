@@ -185,7 +185,7 @@ if __name__ == "__main__":
             dataset,
             device=device,
             text=init_text,
-            total_length=1000,
+            total_length=10000,
             temperature=args.temperature,
             mode=args.mode,
         )
