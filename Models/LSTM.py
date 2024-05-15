@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from utils import fct_nucleus_sampling
 
 
 class LSTM(nn.Module):
@@ -61,6 +62,7 @@ class LSTM(nn.Module):
         text,
         total_length=1000,
         temperature=1.0,
+        nucleus_sampling=1.0,
         mode="character",
     ):
         self.eval()
@@ -83,14 +85,13 @@ class LSTM(nn.Module):
 
             y_pred, (state_h, state_c) = self(x, (state_h, state_c))
 
-            last_word_logits = y_pred[0][-1] / temperature
-            p = (
-                torch.nn.functional.softmax(last_word_logits, dim=0)
-                .detach()
-                .cpu()
-                .numpy()
-            )
-            word_index = np.random.choice(len(last_word_logits), p=p)
+            last_word_logits = y_pred[0][-1]
+            if temperature < 1.0:
+                last_word_logits /= temperature
+            p = (F.softmax(last_word_logits, dim=0))
+            if (temperature==1.0) and (nucleus_sampling < 1.0):
+                p = fct_nucleus_sampling(p, nucleus_sampling)
+            word_index = torch.multinomial(p, 1).item()
             words.append(dataset.index_to_word[word_index])
 
         return words
@@ -117,8 +118,8 @@ if __name__ == "__main__":
     #   TRAIN
     model = LSTM(
         vocab_size=dataset.vocab_size,
-        hidden_dim=1024,
-        embedding_dim=256,
+        hidden_dim=100,
+        embedding_dim=0,
         num_layers=1,
         dropout=0.0,
     ).to(device)
@@ -128,6 +129,7 @@ if __name__ == "__main__":
         device=device,
         text="This is a test to make sure that",
         total_length=100,
+        nucleus_sampling=0.5
     )
     print("".join(list_text))
 
