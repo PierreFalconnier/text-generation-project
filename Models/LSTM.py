@@ -64,6 +64,8 @@ class LSTM(nn.Module):
         temperature=1.0,
         nucleus_sampling=1.0,
         mode="character",
+        top_p=0.9,
+        nucleus_sampling=False,
     ):
         self.eval()
 
@@ -85,13 +87,19 @@ class LSTM(nn.Module):
 
             y_pred, (state_h, state_c) = self(x, (state_h, state_c))
 
-            last_word_logits = y_pred[0][-1]
-            if temperature < 1.0:
-                last_word_logits /= temperature
-            p = (F.softmax(last_word_logits, dim=0))
-            if (temperature==1.0) and (nucleus_sampling < 1.0):
-                p = fct_nucleus_sampling(p, nucleus_sampling)
-            word_index = torch.multinomial(p, 1).item()
+            last_word_logits = y_pred[0][-1] / temperature
+            probs = torch.nn.functional.softmax(last_word_logits, dim=0)
+
+            if nucleus_sampling:
+                sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=0)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_probs[sorted_indices_to_remove] = 0.0
+                sorted_probs /= sorted_probs.sum()  # normalize
+                word_index = torch.multinomial(sorted_probs, 1).item()
+            else:
+                word_index = torch.multinomial(probs, 1).item()
+
             words.append(dataset.index_to_word[word_index])
 
         return words

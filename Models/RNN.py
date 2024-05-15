@@ -59,8 +59,9 @@ class RNN(nn.Module):
         text,
         total_length=1000,
         temperature=1.0,
-        nucleus_sampling=1.0,
-        mode="character"
+        mode="character",
+        top_p=0.9,
+        nucleus_sampling=False,
     ):
         self.eval()
 
@@ -79,15 +80,21 @@ class RNN(nn.Module):
             if self.embedding_dim is None:
                 x = F.one_hot(x, num_classes=self.vocab_size).float()
 
-            y_pred, state_h = self(x, state_h)  # B,  sequence_length, vocabsize
-            
-            last_word_logits = y_pred[0][-1]
-            if temperature < 1.0:
-                last_word_logits /= temperature
-            p = (F.softmax(last_word_logits, dim=0))
-            if (temperature==1.0) and (nucleus_sampling < 1.0):
-                p = fct_nucleus_sampling(p, nucleus_sampling)
-            word_index = torch.multinomial(p, 1).item()
+            y_pred, state_h = self(x, state_h)  # B, sequence_length, vocabsize
+
+            last_word_logits = y_pred[0][-1] / temperature
+            probs = torch.nn.functional.softmax(last_word_logits, dim=0)
+
+            if nucleus_sampling:
+                sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=0)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_probs[sorted_indices_to_remove] = 0.0
+                sorted_probs /= sorted_probs.sum()  # norlaize
+                word_index = torch.multinomial(sorted_probs, 1).item()
+            else:
+                word_index = torch.multinomial(probs, 1).item()
+
             words.append(dataset.index_to_word[word_index])
 
         return words
@@ -104,7 +111,6 @@ if __name__ == "__main__":
     from Dataset.DatasetText import DatasetText as Dataset
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
     print(f"Using device: {device}")
 
     # DATASET
@@ -126,8 +132,8 @@ if __name__ == "__main__":
         dataset,
         device=device,
         text="This is a test to make sure that",
-        total_length=200,
-        nucleus_sampling=0.5
+        total_length=1000,
+        nucleus_sampling=True,
     )
     print("".join(list_text))
 
@@ -140,7 +146,8 @@ if __name__ == "__main__":
     loader = DataLoader(dataset, batch_size=64)
 
     for x, y in loader:
-        state_h = model.init_state(x.size(0))
+        x, y = x.to(device), y.to(device)
+        state_h = model.init_state(x.size(0)).to(device)
         print(x.shape)
         print(y.shape)
         y_pred, state_h = model(x, state_h)

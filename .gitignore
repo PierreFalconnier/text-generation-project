@@ -5,6 +5,7 @@
 **/*.sh
 Data/txt/*
 Run/Results/
+Run/run.sh
 **/__pycache__/
 *.pyc
 *.pyc
