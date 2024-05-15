@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+from utils import fct_nucleus_sampling
 
 
 class RNN(nn.Module):
@@ -119,11 +120,11 @@ if __name__ == "__main__":
     #   TRAIN
     model = RNN(
         vocab_size=dataset.vocab_size,
-        hidden_dim=1024,
-        embedding_dim=256,
+        hidden_dim=100,
+        embedding_dim=0,
         num_layers=1,
         dropout=0.0,
-        nonlinearity="tanh",
+        nonlinearity="tanh"
     ).to(device)
 
     model.eval()

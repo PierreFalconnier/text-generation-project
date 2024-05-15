@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from utils import fct_nucleus_sampling
 
 
 class LSTM(nn.Module):
@@ -61,6 +62,7 @@ class LSTM(nn.Module):
         text,
         total_length=1000,
         temperature=1.0,
+        nucleus_sampling=1.0,
         mode="character",
         top_p=0.9,
         nucleus_sampling=False,
@@ -124,8 +126,8 @@ if __name__ == "__main__":
     #   TRAIN
     model = LSTM(
         vocab_size=dataset.vocab_size,
-        hidden_dim=1024,
-        embedding_dim=256,
+        hidden_dim=100,
+        embedding_dim=0,
         num_layers=1,
         dropout=0.0,
     ).to(device)
@@ -135,6 +137,7 @@ if __name__ == "__main__":
         device=device,
         text="This is a test to make sure that",
         total_length=100,
+        nucleus_sampling=0.5
     )
     print("".join(list_text))
 
