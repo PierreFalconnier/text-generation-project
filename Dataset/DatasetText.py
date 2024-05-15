@@ -1,19 +1,28 @@
+import numpy as np
 import torch
 from collections import Counter
+from gensim.models.word2vec import Word2Vec
+from utils import MySentences
 
 
 class DatasetText(torch.utils.data.Dataset):
-    def __init__(self, folder_path, sequence_length, mode="word"):
+    def __init__(self, folder_path, sequence_length, mode="word", word2vec=False, embedding_dim=None):
         self.sequence_length = sequence_length
         self.folder_path = folder_path
         self.mode = mode
+        self.word2vec = word2vec
+
+        if word2vec:
+            self.sentences = MySentences(folder_path)
+            if embedding_dim is None:
+                embedding_dim=100
+            model = Word2Vec(sentences=self.sentences, vector_size=embedding_dim, window=5,  min_count=5, sg=1, negative=5, ns_exponent=0.75)
+            self.word_vectors = model.wv
+
         self.words = self.load_words()
-
         self.uniq_words = self.get_uniq_words()
-
         self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
         self.word_to_index = {word: index for index, word in enumerate(self.uniq_words)}
-
         self.words_indexes = [self.word_to_index[w] for w in self.words]
         self.vocab_size = len(self.uniq_words)
 
@@ -21,7 +30,10 @@ class DatasetText(torch.utils.data.Dataset):
         with open(self.folder_path, "r") as file:
             text = file.read()
         if self.mode == "word":
-            return text.split()
+            if self.word2vec:
+                return self.sentences.custom_tokenizer(text)
+            else:
+                return text.split()
         elif self.mode == "character":
             return list(text)
         else:

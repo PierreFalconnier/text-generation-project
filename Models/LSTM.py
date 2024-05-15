@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from utils import fct_nucleus_sampling
+from utils import fct_nucleus_sampling, word2vec
 
 
 class LSTM(nn.Module):
     def __init__(
         self,
-        vocab_size,
+        dataset,
         hidden_dim=100,
         embedding_dim=None,
         num_layers=1,
@@ -16,21 +16,27 @@ class LSTM(nn.Module):
     ):
         super(LSTM, self).__init__()
 
-        self.vocab_size = vocab_size
         self.hidden_dim = hidden_dim
         self.embedding_dim = embedding_dim
-        self.num_layers = num_layers
+        self.num_layers = num_layers            
 
         if embedding_dim is not None:
-            # Learned embedding
-            self.embedding = nn.Embedding(
-                num_embeddings=vocab_size,
-                embedding_dim=self.embedding_dim,
-            )
-            input_size = self.embedding_dim
+            if dataset.word2vec:
+                embedding_weights = np.zeros((dataset.vocab_size, embedding_dim))
+                for i, word in enumerate(dataset.index_to_word):
+                    embedding_weights[i] = dataset.word_vectors[word]
+                self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(embedding_weights), freeze=True)
+                input_size = dataset.vocab_size
+            else:
+                # Learned embedding
+                self.embedding = nn.Embedding(
+                    num_embeddings=dataset.vocab_size,
+                    embedding_dim=self.embedding_dim,
+                )
+                input_size = self.embedding_dim                      
         else:
             # Assume input is already one-hot encoded
-            input_size = vocab_size
+            input_size = dataset.vocab_size
 
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -39,7 +45,7 @@ class LSTM(nn.Module):
             dropout=dropout,
             batch_first=True,
         )
-        self.fc = nn.Linear(self.hidden_dim, vocab_size)
+        self.fc = nn.Linear(self.hidden_dim, dataset.vocab_size)
 
     def forward(self, x, states):
         embed = self.embedding(x) if self.embedding_dim is not None else x
@@ -120,7 +126,7 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
 
-    dataset = Dataset(folder_path=folder_path, sequence_length=1000, mode="character")
+    dataset = Dataset(folder_path=folder_path, sequence_length=25, mode="character")
 
     #   TRAIN
     model = LSTM(

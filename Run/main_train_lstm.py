@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
     parser.add_argument("--mode", type=str, default="character")
+    parser.add_argument("--word2vec", type=bool, default=False)
 
     args = parser.parse_args()
     if args.embedding_dim == 0:
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode
+        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, embedding_dim=args.embedding_dim, word2vec=args.word2vec
     )
     if args.mode == "word":
         joiner_str = " "
@@ -101,6 +102,7 @@ if __name__ == "__main__":
     #   TRAIN
     model = LSTM(
         vocab_size=dataset.vocab_size,
+        dataset=dataset,
         hidden_dim=args.hidden_dim,
         embedding_dim=args.embedding_dim,
         num_layers=args.num_layers,
