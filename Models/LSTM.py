@@ -62,7 +62,6 @@ class LSTM(nn.Module):
         text,
         total_length=1000,
         temperature=1.0,
-        nucleus_sampling=1.0,
         mode="character",
         top_p=0.9,
         nucleus_sampling=False,
