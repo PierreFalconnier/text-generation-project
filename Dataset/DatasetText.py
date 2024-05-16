@@ -13,7 +13,7 @@ class DatasetText(torch.utils.data.Dataset):
         self.mode = mode
         self.word2vec = word2vec
         self.embedding_dim = embedding_dim
-        self.use_bpe = use_bpe
+        self.use_bpe = use_bpe # Use_bpe works only with word mode & can be coupled to learning an embedding
         self.bpe_vocab_size = bpe_vocab_size
 
         if word2vec:
@@ -98,3 +98,7 @@ if __name__ == "__main__":
     print(dataset[0][0])
     print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
     print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+    
+    # When using BPE 
+    #print(dataset.bpe_model.Decode([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
+    #print(dataset.bpe_model.Decode([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
