@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from collections import Counter
 from gensim.models.word2vec import Word2Vec
-from utils import MySentences
+from Dataset.utils import MySentences
 
 
 class DatasetText(torch.utils.data.Dataset):
