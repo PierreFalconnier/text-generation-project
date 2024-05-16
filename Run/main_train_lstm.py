@@ -28,6 +28,8 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
     parser.add_argument("--mode", type=str, default="character")
     parser.add_argument("--word2vec", type=bool, default=False)
+    parser.add_argument("--use_bpe", type=bool, default=False)  # Add use_bpe parameter
+    parser.add_argument("--bpe_vocab_size", type=int, default=10000)  # Add bpe_vocab_size parameter
 
     args = parser.parse_args()
     if args.embedding_dim == 0:
@@ -50,7 +52,13 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, word2vec=args.word2vec, embedding_dim=args.embedding_dim 
+        folder_path=folder_path, 
+        sequence_length=args.sequence_length, 
+        mode=args.mode, 
+        word2vec=args.word2vec, 
+        embedding_dim=args.embedding_dim,
+        use_bpe=args.use_bpe,
+        bpe_vocab_size=args.bpe_vocab_size
     )
     if args.mode == "word":
         joiner_str = " " # more post-processing will be needed
@@ -94,7 +102,11 @@ if __name__ == "__main__":
         + "_"
         + str(args.dataset)
         + "_"
-        + args.word2vec
+        + str(args.mode)
+        + "_"
+        + str(args.word2vec)
+        + "_"
+        + str(args.use_bpe)
     )
     LOG_DIR = ROOT / "Run" / "Results" / "Logs" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,7 +153,7 @@ if __name__ == "__main__":
             state_h, state_c = state_h.to(device), state_c.to(device)
 
             if model.embedding_dim is None:
-                x = F.one_hot(x, num_classes=model.vocab_size).float()
+                x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
             optimizer.zero_grad()
             y_pred, (state_h, state_c) = model(x, (state_h, state_c))
@@ -168,16 +180,12 @@ if __name__ == "__main__":
                 x, y = x.to(device), y.to(device)
 
                 state_h_val, state_c_val = model.init_state(x.size(0))
-                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(
-                    device
-                )
+                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(device)
 
                 if model.embedding_dim is None:
-                    x = F.one_hot(x, num_classes=model.vocab_size).float()
+                    x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
-                y_pred, (state_h_val, state_c_val) = model(
-                    x, (state_h_val, state_c_val)
-                )
+                y_pred, (state_h_val, state_c_val) = model(x, (state_h_val, state_c_val))
 
                 loss = criterion(y_pred.permute(0, 2, 1), y)
                 val_loss += loss.item()
@@ -185,6 +193,7 @@ if __name__ == "__main__":
         train_loss /= len(train_dataloader)
         val_loss /= len(val_dataloader)
 
+        # generation
         init_text = "Where are you?"
         list_text = model.generate(
             dataset,
@@ -232,11 +241,9 @@ if __name__ == "__main__":
             x, y = x.to(device), y.to(device)
             if state_h_val is None or state_h_val.size(1) != x.size(0):
                 state_h_val, state_c_val = model.init_state(x.size(0))
-                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(
-                    device
-                )
+                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(device)
             if model.embedding_dim is None:
-                x = F.one_hot(x, num_classes=model.vocab_size).float()
+                x = F.one_hot(x, num_classes=dataset.vocab_size).float()
             y_pred, (state_h_val, state_c_val) = model(x, (state_h_val, state_c_val))
             loss = criterion(y_pred.permute(0, 2, 1), y)
             optimizer.step()

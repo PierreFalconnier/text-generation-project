@@ -29,6 +29,8 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
     parser.add_argument("--mode", type=str, default="character")
     parser.add_argument("--word2vec", type=bool, default=False)
+    parser.add_argument("--use_bpe", type=bool, default=False)  # Add use_bpe parameter
+    parser.add_argument("--bpe_vocab_size", type=int, default=10000)  # Add bpe_vocab_size parameter
     args = parser.parse_args()
 
     if args.embedding_dim == 0:
@@ -51,7 +53,13 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, word2vec=args.word2vec, embedding_dim=args.embedding_dim
+        folder_path=folder_path, 
+        sequence_length=args.sequence_length, 
+        mode=args.mode, 
+        word2vec=args.word2vec, 
+        embedding_dim=args.embedding_dim,
+        use_bpe=args.use_bpe,
+        bpe_vocab_size=args.bpe_vocab_size
     )
     if args.mode == "word":
         joiner_str = " " # more post-processing will be needed
@@ -96,6 +104,8 @@ if __name__ == "__main__":
         + str(args.mode)
         + "_"
         + str(args.word2vec)
+        + "_"
+        + str(args.use_bpe)
     )
     LOG_DIR = ROOT / "Run" / "Results" / "Logs" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -189,9 +199,14 @@ if __name__ == "__main__":
             text=init_text,
             total_length=10000,
             temperature=args.temperature,
-            mode=args.mode,
+            nucleus_sampling=False
         )
-        text = joiner_str.join(list_text[len(init_text) :])
+        if args.use_bpe:
+            print(list_text)
+            text = list_text
+        else :
+            text = joiner_str.join(list_text[len(init_text):])
+            print(text)
         misspelling_percentage = calculate_misspelling_percentage(text)
 
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
