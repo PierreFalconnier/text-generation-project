@@ -106,73 +106,63 @@ class RNN(nn.Module):
             # Add the generated word index to the list of words
             words.append(dataset.index_to_word[word_index])
 
-        # Decode BPE tokens back to text if BPE was used
+        # Decode BPE tokens back to text if BPE was used 
         if dataset.use_bpe:
             words = dataset.bpe_model.decode(words)
 
         return words
 
 
-import sys
-from pathlib import Path
-import torch
-from Dataset.DatasetText import DatasetText as Dataset
 
-CUR_DIR_PATH = Path(__file__)
-ROOT = CUR_DIR_PATH.parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
 
-# DATASET
-folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
-dataset = Dataset(
-    folder_path=folder_path, 
-    sequence_length=100, 
-    mode="word", 
-    word2vec=True, 
-    embedding_dim=100, 
-    use_bpe=True, 
-    bpe_vocab_size=5000
-)
+if __name__ == "__main__":
+    import sys
+    from pathlib import Path
 
-#   TRAIN
-model = RNN(
-    dataset,
-    hidden_dim=100,
-    num_layers=1,
-    dropout=0.0,
-    nonlinearity="tanh"
-).to(device)
+    CUR_DIR_PATH = Path(__file__)
+    ROOT = CUR_DIR_PATH.parents[1]
+    if str(ROOT) not in sys.path:
+        sys.path.append(str(ROOT))
+    from Dataset.DatasetText import DatasetText as Dataset
 
-model.eval()
-list_text = model.generate(
-    dataset,
-    device=device,
-    text="This is a test to make sure that",
-    total_length=100,
-    nucleus_sampling=True,
-)
-if dataset.use_bpe:
-    print(list_text)
-else : 
-    print(" ".join(list_text))
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
-print(model)
-print("Trainable parameters:")
-print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+    # DATASET
+    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
-from torch.utils.data import DataLoader
+    dataset = Dataset(
+        folder_path=folder_path, 
+        sequence_length=25, 
+        mode="word", 
+        word2vec=True, 
+        embedding_dim=100, 
+        use_bpe=True, 
+        bpe_vocab_size=5000
+    )
 
-loader = DataLoader(dataset, batch_size=64)
+    #   TRAIN
+    model = RNN(
+        dataset,
+        hidden_dim=100,
+        num_layers=1,
+        dropout=0.0,
+        nonlinearity="tanh"
+    ).to(device)
 
-for x, y in loader:
-    x, y = x.to(device), y.to(device)
-    state_h = model.init_state(x.size(0)).to(device)
-    print(x.shape)
-    print(y.shape)
-    y_pred, state_h = model(x, state_h)
-    print(y_pred.shape)
-    break
+    list_text = model.generate(
+        dataset,
+        device=device,
+        text="This is a test to make sure that",
+        total_length=100,
+        nucleus_sampling=0.5
+    )
+    if dataset.use_bpe:
+        print(list_text)
+    else : 
+        print(" ".join(list_text))
+
+    print(model)
+    print("Trainable parameters:")
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))

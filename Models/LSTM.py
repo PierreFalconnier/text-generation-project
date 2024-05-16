@@ -57,7 +57,6 @@ class LSTM(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_dim),
         )
 
-    # CORRIGER LA FONCTION POUR GERER LE CAS GENERATION DE CHARACTERS
     def generate(
         self,
         dataset,
@@ -70,15 +69,19 @@ class LSTM(nn.Module):
     ):
         self.eval()
 
-        if dataset.mode == "word":
-            if dataset.word2vec:
-                words = dataset.sentences.custom_tokenizer(text)
-            else:
-                words = text.split()
-        elif dataset.mode == "character":
-            words = list(text)
+        # Tokenize input text using BPE if enabled
+        if dataset.use_bpe:
+            words = dataset.bpe_model.encode(text, out_type=str)
         else:
-            raise NotImplementedError
+            if dataset.mode == "word":
+                if dataset.word2vec:
+                    words = dataset.sentences.custom_tokenizer(text)
+                else:
+                    words = text.split()
+            elif dataset.mode == "character":
+                words = list(text)
+            else:
+                raise NotImplementedError
 
         state_h, state_c = self.init_state(1)
         state_h, state_c = state_h.to(device), state_c.to(device)
@@ -105,6 +108,10 @@ class LSTM(nn.Module):
                 word_index = torch.multinomial(probs, 1).item()
 
             words.append(dataset.index_to_word[word_index])
+        
+        # Decode BPE tokens back to text if BPE was used 
+        if dataset.use_bpe:
+            words = dataset.bpe_model.decode(words)
 
         return words
 
@@ -125,7 +132,15 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
-    dataset = Dataset(folder_path=folder_path, sequence_length=25, mode="word", word2vec=True, embedding_dim=100)
+    dataset = Dataset(
+    folder_path=folder_path, 
+    sequence_length=25, 
+    mode="word", 
+    word2vec=True, 
+    embedding_dim=100, 
+    use_bpe=True, 
+    bpe_vocab_size=5000
+    )
 
     #   TRAIN
     model = LSTM(
@@ -142,7 +157,10 @@ if __name__ == "__main__":
         total_length=100,
         nucleus_sampling=0.5
     )
-    print(" ".join(list_text))
+    if dataset.use_bpe:
+        print(list_text)
+    else : 
+        print(" ".join(list_text))
 
     print(model)
     print("Trainable parameters:")
