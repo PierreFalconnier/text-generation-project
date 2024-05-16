@@ -2,35 +2,38 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from utils import fct_nucleus_sampling
-
 
 class LSTM(nn.Module):
     def __init__(
         self,
-        vocab_size,
+        dataset,
         hidden_dim=100,
-        embedding_dim=None,
         num_layers=1,
         dropout=0.0,
     ):
         super(LSTM, self).__init__()
 
-        self.vocab_size = vocab_size
         self.hidden_dim = hidden_dim
-        self.embedding_dim = embedding_dim
-        self.num_layers = num_layers
+        self.embedding_dim = dataset.embedding_dim
+        self.num_layers = num_layers            
 
-        if embedding_dim is not None:
-            # Learned embedding
-            self.embedding = nn.Embedding(
-                num_embeddings=vocab_size,
-                embedding_dim=self.embedding_dim,
-            )
-            input_size = self.embedding_dim
+        if self.embedding_dim is not None:
+            if dataset.word2vec:
+                embedding_weights = np.zeros((dataset.vocab_size, self.embedding_dim))
+                for idx, word in dataset.index_to_word.items():
+                    embedding_weights[idx] = dataset.wv[word]
+                self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(embedding_weights), freeze=True)
+                input_size = self.embedding_dim 
+            else:
+                # Learned embedding
+                self.embedding = nn.Embedding(
+                    num_embeddings=dataset.vocab_size,
+                    embedding_dim=self.embedding_dim,
+                )
+                input_size = self.embedding_dim                      
         else:
             # Assume input is already one-hot encoded
-            input_size = vocab_size
+            input_size = dataset.vocab_size
 
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -39,7 +42,7 @@ class LSTM(nn.Module):
             dropout=dropout,
             batch_first=True,
         )
-        self.fc = nn.Linear(self.hidden_dim, vocab_size)
+        self.fc = nn.Linear(self.hidden_dim, dataset.vocab_size)
 
     def forward(self, x, states):
         embed = self.embedding(x) if self.embedding_dim is not None else x
@@ -62,15 +65,17 @@ class LSTM(nn.Module):
         text,
         total_length=1000,
         temperature=1.0,
-        mode="character",
         top_p=0.9,
         nucleus_sampling=False,
     ):
         self.eval()
 
-        if mode == "word":
-            words = text.split(" ")
-        elif mode == "character":
+        if dataset.mode == "word":
+            if dataset.word2vec:
+                words = dataset.sentences.custom_tokenizer(text)
+            else:
+                words = text.split()
+        elif dataset.mode == "character":
             words = list(text)
         else:
             raise NotImplementedError
@@ -82,7 +87,7 @@ class LSTM(nn.Module):
             x = torch.tensor([[dataset.word_to_index[w] for w in words[i:]]]).to(device)
 
             if self.embedding_dim is None:
-                x = F.one_hot(x, num_classes=self.vocab_size).float()
+                x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
             y_pred, (state_h, state_c) = self(x, (state_h, state_c))
 
@@ -118,15 +123,14 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     # DATASET
-    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
-    dataset = Dataset(folder_path=folder_path, sequence_length=1000, mode="character")
+    dataset = Dataset(folder_path=folder_path, sequence_length=25, mode="word", word2vec=True, embedding_dim=100)
 
     #   TRAIN
     model = LSTM(
-        vocab_size=dataset.vocab_size,
+        dataset=dataset,
         hidden_dim=100,
-        embedding_dim=0,
         num_layers=1,
         dropout=0.0,
     ).to(device)
@@ -138,7 +142,7 @@ if __name__ == "__main__":
         total_length=100,
         nucleus_sampling=0.5
     )
-    print("".join(list_text))
+    print(" ".join(list_text))
 
     print(model)
     print("Trainable parameters:")

@@ -1,27 +1,40 @@
+import numpy as np
 import torch
 from collections import Counter
+from gensim.models.word2vec import Word2Vec
+from utils import MySentences
 
 
 class DatasetText(torch.utils.data.Dataset):
-    def __init__(self, folder_path, sequence_length, mode="word"):
+    def __init__(self, folder_path, sequence_length, mode="word", word2vec=False, embedding_dim=None):
         self.sequence_length = sequence_length
         self.folder_path = folder_path
         self.mode = mode
+        self.word2vec = word2vec
+        self.embedding_dim = embedding_dim
+
+        if word2vec:
+            self.sentences = MySentences(folder_path)
+            self.embedding_dim = 100 if embedding_dim is None else embedding_dim
+            model = Word2Vec(sentences=self.sentences, vector_size=self.embedding_dim, window=5,  min_count=1, sg=1, negative=5, ns_exponent=0.75)
+            self.wv = model.wv
+
         self.words = self.load_words()
-
         self.uniq_words = self.get_uniq_words()
-
         self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
         self.word_to_index = {word: index for index, word in enumerate(self.uniq_words)}
-
         self.words_indexes = [self.word_to_index[w] for w in self.words]
         self.vocab_size = len(self.uniq_words)
 
     def load_words(self):
-        with open(self.folder_path, "r") as file:
+        with open(self.folder_path, "rb") as file:
             text = file.read()
+            text = text.decode('utf-8')
         if self.mode == "word":
-            return text.split()
+            if self.word2vec:
+                return self.sentences.custom_tokenizer(text)
+            else:
+                return text.split()
         elif self.mode == "character":
             return list(text)
         else:
@@ -63,9 +76,9 @@ if __name__ == "__main__":
     # folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
     dataset = DatasetText(
-        folder_path=folder_path, sequence_length=100, mode="character"
+        folder_path=folder_path, sequence_length=100, mode="word", word2vec=True
     )
 
     print(dataset[0][0])
-    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
-    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+    print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
+    print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))

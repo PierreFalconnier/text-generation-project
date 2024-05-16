@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
     parser.add_argument("--mode", type=str, default="character")
+    parser.add_argument("--word2vec", type=bool, default=False)
     args = parser.parse_args()
 
     if args.embedding_dim == 0:
@@ -50,10 +51,10 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode
+        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, word2vec=args.word2vec, embedding_dim=args.embedding_dim
     )
     if args.mode == "word":
-        joiner_str = " "
+        joiner_str = " " # more post-processing will be needed
     elif args.mode == "character":
         joiner_str = ""
 
@@ -93,6 +94,8 @@ if __name__ == "__main__":
         + str(args.dataset)
         + "_"
         + str(args.mode)
+        + "_"
+        + str(args.word2vec)
     )
     LOG_DIR = ROOT / "Run" / "Results" / "Logs" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -101,9 +104,8 @@ if __name__ == "__main__":
 
     #   TRAIN
     model = RNN(
-        vocab_size=dataset.vocab_size,
+        dataset=dataset,
         hidden_dim=args.hidden_dim,
-        embedding_dim=args.embedding_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
         nonlinearity="tanh",
@@ -140,7 +142,7 @@ if __name__ == "__main__":
             state_h = model.init_state(x.size(0)).to(device)
 
             if model.embedding_dim is None:
-                x = F.one_hot(x, num_classes=model.vocab_size).float()
+                x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
             optimizer.zero_grad()
             y_pred, state_h = model(x, state_h)
@@ -169,7 +171,7 @@ if __name__ == "__main__":
                 state_h_val = model.init_state(x.size(0)).to(device)
 
                 if model.embedding_dim is None:
-                    x = F.one_hot(x, num_classes=model.vocab_size).float()
+                    x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
                 y_pred, state_h_val = model(x, state_h_val)
 
@@ -230,7 +232,7 @@ if __name__ == "__main__":
             if state_h_val is None or state_h_val.size(1) != x.size(0):
                 state_h_val = model.init_state(x.size(0)).to(device)
             if model.embedding_dim is None:
-                x = F.one_hot(x, num_classes=model.vocab_size).float()
+                x = F.one_hot(x, num_classes=dataset.vocab_size).float()
             y_pred, state_h_val = model(x, state_h_val)
             loss = criterion(y_pred.permute(0, 2, 1), y)
             optimizer.step()
