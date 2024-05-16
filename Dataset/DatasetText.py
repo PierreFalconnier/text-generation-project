@@ -3,15 +3,18 @@ import torch
 from collections import Counter
 from gensim.models.word2vec import Word2Vec
 from Dataset.utils import MySentences
+import sentencepiece as spm
 
 
 class DatasetText(torch.utils.data.Dataset):
-    def __init__(self, folder_path, sequence_length, mode="word", word2vec=False, embedding_dim=None):
+    def __init__(self, folder_path, sequence_length, mode="word", word2vec=False, embedding_dim=None, use_bpe=False, bpe_vocab_size=10000):
         self.sequence_length = sequence_length
         self.folder_path = folder_path
         self.mode = mode
         self.word2vec = word2vec
         self.embedding_dim = embedding_dim
+        self.use_bpe = use_bpe
+        self.bpe_vocab_size = bpe_vocab_size
 
         if word2vec:
             self.sentences = MySentences(folder_path)
@@ -20,6 +23,10 @@ class DatasetText(torch.utils.data.Dataset):
             self.wv = model.wv
 
         self.words = self.load_words()
+        if self.use_bpe:
+            self.bpe_model = self.train_bpe()
+            self.words = self.apply_bpe(self.words)
+            self.words = [item for sublist in self.words for item in sublist]
         self.uniq_words = self.get_uniq_words()
         self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
         self.word_to_index = {word: index for index, word in enumerate(self.uniq_words)}
@@ -39,6 +46,15 @@ class DatasetText(torch.utils.data.Dataset):
             return list(text)
         else:
             raise ValueError("wrong mode")
+
+    def train_bpe(self):
+        spm.SentencePieceTrainer.train(input=str(self.folder_path), model_prefix='bpe', vocab_size=self.bpe_vocab_size)
+        sp = spm.SentencePieceProcessor()
+        sp.load('bpe.model')
+        return sp
+
+    def apply_bpe(self, words):
+        return self.bpe_model.encode(words, out_type=str)
 
     def get_uniq_words(self):
         word_counts = Counter(self.words)
@@ -73,10 +89,10 @@ if __name__ == "__main__":
     # DATASET
     # folder_path = ROOT / "Data" / "txt" / "goblet_book.txt"
     folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
-    # folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
+    #folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
     dataset = DatasetText(
-        folder_path=folder_path, sequence_length=100, mode="word", word2vec=True
+        folder_path=folder_path, sequence_length=100, mode="word", word2vec=False, use_bpe=True, bpe_vocab_size=5000
     )
 
     print(dataset[0][0])
