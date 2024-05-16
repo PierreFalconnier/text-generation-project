@@ -67,15 +67,18 @@ class RNN(nn.Module):
     ):
         self.eval()
 
-        if dataset.mode == "word":
-            if dataset.word2vec:
-                words = dataset.sentences.custom_tokenizer(text)
-            else:
-                words = text.split()
-        elif dataset.mode == "character":
-            words = list(text)
+        if dataset.use_bpe:
+            words = dataset.bpe_model.encode(text, out_type=str)
         else:
-            raise NotImplementedError
+            if dataset.mode == "word":
+                if dataset.word2vec:
+                    words = dataset.sentences.custom_tokenizer(text)
+                else:
+                    words = text.split()
+            elif dataset.mode == "character":
+                words = list(text)
+            else:
+                raise NotImplementedError
 
         state_h = self.init_state(1).to(device)
 
@@ -95,65 +98,81 @@ class RNN(nn.Module):
                 cumulative_probs = torch.cumsum(sorted_probs, dim=0)
                 sorted_indices_to_remove = cumulative_probs > top_p
                 sorted_probs[sorted_indices_to_remove] = 0.0
-                sorted_probs /= sorted_probs.sum()  # norlaize
+                sorted_probs /= sorted_probs.sum()  # normalize
                 word_index = torch.multinomial(sorted_probs, 1).item()
             else:
                 word_index = torch.multinomial(probs, 1).item()
 
+            # Add the generated word index to the list of words
             words.append(dataset.index_to_word[word_index])
+
+        # Decode BPE tokens back to text if BPE was used
+        if dataset.use_bpe:
+            words = dataset.bpe_model.decode(words)
 
         return words
 
 
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
+import sys
+from pathlib import Path
+import torch
+from Dataset.DatasetText import DatasetText as Dataset
 
-    CUR_DIR_PATH = Path(__file__)
-    ROOT = CUR_DIR_PATH.parents[1]
-    if str(ROOT) not in sys.path:
-        sys.path.append(str(ROOT))
-    from Dataset.DatasetText import DatasetText as Dataset
+CUR_DIR_PATH = Path(__file__)
+ROOT = CUR_DIR_PATH.parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
-    # DATASET
-    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
-    dataset = Dataset(folder_path=folder_path, sequence_length=100, mode="word", word2vec=True, embedding_dim=100)
+# DATASET
+folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+dataset = Dataset(
+    folder_path=folder_path, 
+    sequence_length=100, 
+    mode="word", 
+    word2vec=True, 
+    embedding_dim=100, 
+    use_bpe=True, 
+    bpe_vocab_size=5000
+)
 
-    #   TRAIN
-    model = RNN(
-        dataset,
-        hidden_dim=100,
-        num_layers=1,
-        dropout=0.0,
-        nonlinearity="tanh"
-    ).to(device)
+#   TRAIN
+model = RNN(
+    dataset,
+    hidden_dim=100,
+    num_layers=1,
+    dropout=0.0,
+    nonlinearity="tanh"
+).to(device)
 
-    model.eval()
-    list_text = model.generate(
-        dataset,
-        device=device,
-        text="This is a test to make sure that",
-        total_length=100,
-        nucleus_sampling=True,
-    )
+model.eval()
+list_text = model.generate(
+    dataset,
+    device=device,
+    text="This is a test to make sure that",
+    total_length=100,
+    nucleus_sampling=True,
+)
+if dataset.use_bpe:
+    print(list_text)
+else : 
     print(" ".join(list_text))
 
-    print(model)
-    print("Trainable parameters:")
-    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+print(model)
+print("Trainable parameters:")
+print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
-    from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader
 
-    loader = DataLoader(dataset, batch_size=64)
+loader = DataLoader(dataset, batch_size=64)
 
-    for x, y in loader:
-        x, y = x.to(device), y.to(device)
-        state_h = model.init_state(x.size(0)).to(device)
-        print(x.shape)
-        print(y.shape)
-        y_pred, state_h = model(x, state_h)
-        print(y_pred.shape)
-        break
+for x, y in loader:
+    x, y = x.to(device), y.to(device)
+    state_h = model.init_state(x.size(0)).to(device)
+    print(x.shape)
+    print(y.shape)
+    y_pred, state_h = model(x, state_h)
+    print(y_pred.shape)
+    break
