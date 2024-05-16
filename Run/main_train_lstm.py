@@ -50,10 +50,10 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, embedding_dim=args.embedding_dim, word2vec=args.word2vec
+        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, word2vec=args.word2vec, embedding_dim=args.embedding_dim 
     )
     if args.mode == "word":
-        joiner_str = " "
+        joiner_str = " " # more post-processing will be needed
     elif args.mode == "character":
         joiner_str = ""
 
@@ -93,6 +93,8 @@ if __name__ == "__main__":
         + str(args.hidden_dim)
         + "_"
         + str(args.dataset)
+        + "_"
+        + args.word2vec
     )
     LOG_DIR = ROOT / "Run" / "Results" / "Logs" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -101,10 +103,8 @@ if __name__ == "__main__":
 
     #   TRAIN
     model = LSTM(
-        vocab_size=dataset.vocab_size,
         dataset=dataset,
         hidden_dim=args.hidden_dim,
-        embedding_dim=args.embedding_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
     ).to(device)
