@@ -96,6 +96,14 @@ if __name__ == "__main__":
     print(f"LOG_DIR: {LOG_DIR}")
     writer = SummaryWriter(log_dir=LOG_DIR)
 
+    hparams = {
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "hidden_dim": args.hidden_dim,
+        "num_layers": args.num_layers,
+        "architecture": "LSTM",
+    }
+
     #   TRAIN
     model = LSTM(
         vocab_size=dataset.vocab_size,
@@ -204,8 +212,6 @@ if __name__ == "__main__":
         # stop if no amelioration for early_stopping_tol epochs
         if best_val_loss > val_loss:
             best_val_loss = val_loss
-            best_state_dict = model.state_dict().copy()
-            torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
             counter = 0
         else:
             counter += 1
@@ -215,6 +221,11 @@ if __name__ == "__main__":
             break
 
         prev_val_loss = val_loss
+
+    # once training is over
+    best_misspelling_percentage = misspelling_percentage
+    best_state_dict = model.state_dict().copy()
+    torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
 
     # eval on the test set
 
@@ -244,3 +255,13 @@ if __name__ == "__main__":
         print(best_val_loss, file=file)
         print(f"Test loss:", file=file)
         print(test_loss, file=file)
+
+    # Log hyperparameters and metrics
+    writer.add_hparams(
+        hparam_dict=hparams,
+        metric_dict={
+            "hparam/best_val_loss": best_val_loss,
+            "hparam/test_loss": test_loss,
+            "hparam/best_misspelling_percentage": best_misspelling_percentage,
+        },
+    )
