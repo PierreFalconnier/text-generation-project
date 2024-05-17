@@ -30,7 +30,9 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str, default="character")
     parser.add_argument("--word2vec", type=bool, default=False)
     parser.add_argument("--use_bpe", type=bool, default=False)  # Add use_bpe parameter
-    parser.add_argument("--bpe_vocab_size", type=int, default=10000)  # Add bpe_vocab_size parameter
+    parser.add_argument(
+        "--bpe_vocab_size", type=int, default=10000
+    )  # Add bpe_vocab_size parameter
     args = parser.parse_args()
 
     if args.embedding_dim == 0:
@@ -53,16 +55,16 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, 
-        sequence_length=args.sequence_length, 
-        mode=args.mode, 
-        word2vec=args.word2vec, 
+        folder_path=folder_path,
+        sequence_length=args.sequence_length,
+        mode=args.mode,
+        word2vec=args.word2vec,
         embedding_dim=args.embedding_dim,
         use_bpe=args.use_bpe,
-        bpe_vocab_size=args.bpe_vocab_size
+        bpe_vocab_size=args.bpe_vocab_size,
     )
     if args.mode == "word":
-        joiner_str = " " # more post-processing will be needed
+        joiner_str = " "  # more post-processing will be needed
     elif args.mode == "character":
         joiner_str = ""
 
@@ -99,9 +101,7 @@ if __name__ == "__main__":
         + "_"
         + str(args.hidden_dim)
         + "_"
-        + str(args.dataset)
-        + "_"
-        + str(args.mode)
+        + str(args.dataset[:-4])
         + "_"
         + str(args.word2vec)
         + "_"
@@ -111,6 +111,14 @@ if __name__ == "__main__":
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     print(f"LOG_DIR: {LOG_DIR}")
     writer = SummaryWriter(log_dir=LOG_DIR)
+
+    hparams = {
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "hidden_dim": args.hidden_dim,
+        "num_layers": args.num_layers,
+        "architecture": "RNN",
+    }
 
     #   TRAIN
     model = RNN(
@@ -199,13 +207,13 @@ if __name__ == "__main__":
             text=init_text,
             total_length=10000,
             temperature=args.temperature,
-            nucleus_sampling=False
+            nucleus_sampling=False,
         )
         if args.use_bpe:
             print(list_text)
             text = list_text
-        else :
-            text = joiner_str.join(list_text[len(init_text):])
+        else:
+            text = joiner_str.join(list_text[len(init_text) :])
             print(text)
         misspelling_percentage = calculate_misspelling_percentage(text)
 
@@ -221,8 +229,6 @@ if __name__ == "__main__":
         # stop if no amelioration for early_stopping_tol epochs
         if best_val_loss > val_loss:
             best_val_loss = val_loss
-            best_state_dict = model.state_dict().copy()
-            torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
             counter = 0
         else:
             counter += 1
@@ -232,6 +238,11 @@ if __name__ == "__main__":
             break
 
         prev_val_loss = val_loss
+
+    # once training is over
+    best_misspelling_percentage = misspelling_percentage
+    best_state_dict = model.state_dict().copy()
+    torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
 
     # eval on the test set
 
@@ -259,3 +270,13 @@ if __name__ == "__main__":
         print(best_val_loss, file=file)
         print(f"Test loss:", file=file)
         print(test_loss, file=file)
+
+    # Log hyperparameters and metrics
+    writer.add_hparams(
+        hparam_dict=hparams,
+        metric_dict={
+            "hparam/best_val_loss": best_val_loss,
+            "hparam/test_loss": test_loss,
+            "hparam/best_misspelling_percentage": best_misspelling_percentage,
+        },
+    )

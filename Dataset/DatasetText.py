@@ -7,19 +7,36 @@ import sentencepiece as spm
 
 
 class DatasetText(torch.utils.data.Dataset):
-    def __init__(self, folder_path, sequence_length, mode="word", word2vec=False, embedding_dim=None, use_bpe=False, bpe_vocab_size=10000):
+    def __init__(
+        self,
+        folder_path,
+        sequence_length,
+        mode="word",
+        word2vec=False,
+        embedding_dim=None,
+        use_bpe=False,
+        bpe_vocab_size=10000,
+    ):
         self.sequence_length = sequence_length
         self.folder_path = folder_path
         self.mode = mode
         self.word2vec = word2vec
         self.embedding_dim = embedding_dim
-        self.use_bpe = use_bpe # Use_bpe works only with word mode & can be coupled to learning an embedding
+        self.use_bpe = use_bpe  # Use_bpe works only with word mode & can be coupled to learning an embedding
         self.bpe_vocab_size = bpe_vocab_size
 
         if word2vec:
             self.sentences = MySentences(folder_path)
             self.embedding_dim = 100 if embedding_dim is None else embedding_dim
-            model = Word2Vec(sentences=self.sentences, vector_size=self.embedding_dim, window=5,  min_count=1, sg=1, negative=5, ns_exponent=0.75)
+            model = Word2Vec(
+                sentences=self.sentences,
+                vector_size=self.embedding_dim,
+                window=5,
+                min_count=1,
+                sg=1,
+                negative=5,
+                ns_exponent=0.75,
+            )
             self.wv = model.wv
 
         self.words = self.load_words()
@@ -34,9 +51,9 @@ class DatasetText(torch.utils.data.Dataset):
         self.vocab_size = len(self.uniq_words)
 
     def load_words(self):
-        with open(self.folder_path, "rb") as file:
+        with open(self.folder_path, "r", encoding="utf-8") as file:
             text = file.read()
-            text = text.decode('utf-8')
+            text = text.decode("utf-8")
         if self.mode == "word":
             if self.word2vec:
                 return self.sentences.custom_tokenizer(text)
@@ -48,9 +65,13 @@ class DatasetText(torch.utils.data.Dataset):
             raise ValueError("wrong mode")
 
     def train_bpe(self):
-        spm.SentencePieceTrainer.train(input=str(self.folder_path), model_prefix='bpe', vocab_size=self.bpe_vocab_size)
+        spm.SentencePieceTrainer.train(
+            input=str(self.folder_path),
+            model_prefix="bpe",
+            vocab_size=self.bpe_vocab_size,
+        )
         sp = spm.SentencePieceProcessor()
-        sp.load('bpe.model')
+        sp.load("bpe.model")
         return sp
 
     def apply_bpe(self, words):
@@ -88,17 +109,21 @@ if __name__ == "__main__":
 
     # DATASET
     # folder_path = ROOT / "Data" / "txt" / "goblet_book.txt"
-    folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
-    #folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
+    # folder_path = ROOT / "Data" / "txt" / "shakespeare.txt"
+    folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
     dataset = DatasetText(
-        folder_path=folder_path, sequence_length=100, mode="word", word2vec=False, use_bpe=True, bpe_vocab_size=5000
+        folder_path=folder_path,
+        sequence_length=100,
+        mode="word",
+        word2vec=False,
+        use_bpe=True,
+        bpe_vocab_size=5000,
     )
 
     print(dataset[0][0])
-    print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
-    print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
-    
-    # When using BPE 
-    #print(dataset.bpe_model.Decode([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
-    #print(dataset.bpe_model.Decode([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
+    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+
+    # print("".join(dataset.words))
+    print(dataset.uniq_words)

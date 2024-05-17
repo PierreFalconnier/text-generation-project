@@ -15,12 +15,12 @@ if __name__ == "__main__":
 
     # Hyperparams
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--sequence-length", type=int, default=100)
     parser.add_argument("--embedding-dim", type=int, default=0)
-    parser.add_argument("--hidden-dim", type=int, default=1024)
-    parser.add_argument("--num-layers", type=int, default=1)
+    parser.add_argument("--hidden-dim", type=int, default=2048)
+    parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--dropout", type=float, default=0)
     parser.add_argument("--optim", type=str, default="adam")
     parser.add_argument("--lr", type=float, default=0.001)
@@ -51,10 +51,14 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, word2vec=args.word2vec, embedding_dim=args.embedding_dim
+        folder_path=folder_path,
+        sequence_length=args.sequence_length,
+        mode=args.mode,
+        word2vec=args.word2vec,
+        embedding_dim=args.embedding_dim,
     )
     if args.mode == "word":
-        joiner_str = " " # more post-processing will be needed
+        joiner_str = " "  # more post-processing will be needed
     elif args.mode == "character":
         joiner_str = ""
 
@@ -70,14 +74,23 @@ if __name__ == "__main__":
 
     # DATALOADERS
     train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=6,
     )
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     # GRID SEARCH
-    learning_rates = [0.001, 0.0001]
-    batch_sizes = [32, 64]
+    learning_rates = [1e-4, 1e-3, 1e-2]
+    batch_sizes = [32, 128, 512, 2048]
+
+    # learning_rates = [1e-3]
+    # batch_sizes = [1, 8]
+
+    best_val_loss_list = []
 
     for lr in learning_rates:
         for batch_size in batch_sizes:
@@ -86,7 +99,8 @@ if __name__ == "__main__":
             args.batch_size = batch_size
 
             # LOGGER
-            name = Path(__file__).name[:-3]
+            # name = Path(__file__).name[:-3]
+            name = "main_train_lstm"
             name += (
                 "_"
                 + str(args.epochs)
@@ -95,15 +109,13 @@ if __name__ == "__main__":
                 + "_"
                 + str(args.sequence_length)
                 + "_"
-                + str(args.embedding_dim)
-                + "_"
                 + str(args.lr)[2:]
                 + "_"
                 + str(args.num_layers)
                 + "_"
                 + str(args.hidden_dim)
                 + "_"
-                + str(args.dataset)
+                + str(args.dataset[:-4])
                 + "_"
                 + str(args.word2vec)
             )
@@ -111,6 +123,14 @@ if __name__ == "__main__":
             LOG_DIR.mkdir(parents=True, exist_ok=True)
             print(f"LOG_DIR: {LOG_DIR}")
             writer = SummaryWriter(log_dir=LOG_DIR)
+
+            hparams = {
+                "lr": args.lr,
+                "batch_size": args.batch_size,
+                "hidden_dim": args.hidden_dim,
+                "num_layers": args.num_layers,
+                "architecture": "LSTM",
+            }
 
             #   TRAIN
             model = LSTM(
@@ -137,7 +157,7 @@ if __name__ == "__main__":
             SAVED_MODEL_DIR = ROOT / "Run" / "Results" / "Saved_models" / name
             SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-            early_stopping_tol = 5  # num of epochs
+            early_stopping_tol = 2  # num of epochs
             prev_val_loss = float("inf")
             counter = 0
 
@@ -228,8 +248,6 @@ if __name__ == "__main__":
                 # stop if no amelioration for early_stopping_tol epochs
                 if best_val_loss > val_loss:
                     best_val_loss = val_loss
-                    best_state_dict = model.state_dict().copy()
-                    torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
                     counter = 0
                 else:
                     counter += 1
@@ -239,6 +257,11 @@ if __name__ == "__main__":
                     break
 
                 prev_val_loss = val_loss
+
+            # once training is over
+            best_misspelling_percentage = misspelling_percentage
+            best_state_dict = model.state_dict().copy()
+            torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
 
             # eval on the test set
 
@@ -272,3 +295,20 @@ if __name__ == "__main__":
                 print(best_val_loss, file=file)
                 print(f"Test loss:", file=file)
                 print(test_loss, file=file)
+
+            # Log hyperparameters and metrics
+            writer.add_hparams(
+                hparam_dict=hparams,
+                metric_dict={
+                    "hparam/best_val_loss": best_val_loss,
+                    "hparam/test_loss": test_loss,
+                    "hparam/best_misspelling_percentage": best_misspelling_percentage,
+                },
+            )
+
+            best_val_loss_list.append(best_val_loss)
+
+            writer.close()
+
+    print(best_val_loss_list)
+    print(best_val_loss_list.index(max(best_val_loss_list)))

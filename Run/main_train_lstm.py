@@ -29,7 +29,9 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str, default="character")
     parser.add_argument("--word2vec", type=bool, default=False)
     parser.add_argument("--use_bpe", type=bool, default=False)  # Add use_bpe parameter
-    parser.add_argument("--bpe_vocab_size", type=int, default=10000)  # Add bpe_vocab_size parameter
+    parser.add_argument(
+        "--bpe_vocab_size", type=int, default=10000
+    )  # Add bpe_vocab_size parameter
 
     args = parser.parse_args()
     if args.embedding_dim == 0:
@@ -52,16 +54,16 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, 
-        sequence_length=args.sequence_length, 
-        mode=args.mode, 
-        word2vec=args.word2vec, 
+        folder_path=folder_path,
+        sequence_length=args.sequence_length,
+        mode=args.mode,
+        word2vec=args.word2vec,
         embedding_dim=args.embedding_dim,
         use_bpe=args.use_bpe,
-        bpe_vocab_size=args.bpe_vocab_size
+        bpe_vocab_size=args.bpe_vocab_size,
     )
     if args.mode == "word":
-        joiner_str = " " # more post-processing will be needed
+        joiner_str = " "  # more post-processing will be needed
     elif args.mode == "character":
         joiner_str = ""
 
@@ -92,15 +94,13 @@ if __name__ == "__main__":
         + "_"
         + str(args.sequence_length)
         + "_"
-        + str(args.embedding_dim)
-        + "_"
         + str(args.lr)[2:]
         + "_"
         + str(args.num_layers)
         + "_"
         + str(args.hidden_dim)
         + "_"
-        + str(args.dataset)
+        + str(args.dataset[:-4])
         + "_"
         + str(args.mode)
         + "_"
@@ -112,6 +112,14 @@ if __name__ == "__main__":
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     print(f"LOG_DIR: {LOG_DIR}")
     writer = SummaryWriter(log_dir=LOG_DIR)
+
+    hparams = {
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "hidden_dim": args.hidden_dim,
+        "num_layers": args.num_layers,
+        "architecture": "LSTM",
+    }
 
     #   TRAIN
     model = LSTM(
@@ -180,12 +188,16 @@ if __name__ == "__main__":
                 x, y = x.to(device), y.to(device)
 
                 state_h_val, state_c_val = model.init_state(x.size(0))
-                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(device)
+                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(
+                    device
+                )
 
                 if model.embedding_dim is None:
                     x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
-                y_pred, (state_h_val, state_c_val) = model(x, (state_h_val, state_c_val))
+                y_pred, (state_h_val, state_c_val) = model(
+                    x, (state_h_val, state_c_val)
+                )
 
                 loss = criterion(y_pred.permute(0, 2, 1), y)
                 val_loss += loss.item()
@@ -217,8 +229,6 @@ if __name__ == "__main__":
         # stop if no amelioration for early_stopping_tol epochs
         if best_val_loss > val_loss:
             best_val_loss = val_loss
-            best_state_dict = model.state_dict().copy()
-            torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
             counter = 0
         else:
             counter += 1
@@ -228,6 +238,11 @@ if __name__ == "__main__":
             break
 
         prev_val_loss = val_loss
+
+    # once training is over
+    best_misspelling_percentage = misspelling_percentage
+    best_state_dict = model.state_dict().copy()
+    torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
 
     # eval on the test set
 
@@ -241,7 +256,9 @@ if __name__ == "__main__":
             x, y = x.to(device), y.to(device)
             if state_h_val is None or state_h_val.size(1) != x.size(0):
                 state_h_val, state_c_val = model.init_state(x.size(0))
-                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(device)
+                state_h_val, state_c_val = state_h_val.to(device), state_c_val.to(
+                    device
+                )
             if model.embedding_dim is None:
                 x = F.one_hot(x, num_classes=dataset.vocab_size).float()
             y_pred, (state_h_val, state_c_val) = model(x, (state_h_val, state_c_val))
@@ -255,3 +272,13 @@ if __name__ == "__main__":
         print(best_val_loss, file=file)
         print(f"Test loss:", file=file)
         print(test_loss, file=file)
+
+    # Log hyperparameters and metrics
+    writer.add_hparams(
+        hparam_dict=hparams,
+        metric_dict={
+            "hparam/best_val_loss": best_val_loss,
+            "hparam/test_loss": test_loss,
+            "hparam/best_misspelling_percentage": best_misspelling_percentage,
+        },
+    )

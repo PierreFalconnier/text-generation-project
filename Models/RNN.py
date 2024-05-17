@@ -3,14 +3,10 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
+
 class RNN(nn.Module):
     def __init__(
-        self,
-        dataset,
-        hidden_dim=100,
-        num_layers=1,
-        dropout=0.0,
-        nonlinearity="tanh"
+        self, dataset, hidden_dim=100, num_layers=1, dropout=0.0, nonlinearity="tanh"
     ):
         super(RNN, self).__init__()
 
@@ -23,15 +19,17 @@ class RNN(nn.Module):
                 embedding_weights = np.zeros((dataset.vocab_size, self.embedding_dim))
                 for idx, word in dataset.index_to_word.items():
                     embedding_weights[idx] = dataset.wv[word]
-                self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(embedding_weights), freeze=True)
-                input_size = self.embedding_dim 
+                self.embedding = nn.Embedding.from_pretrained(
+                    torch.FloatTensor(embedding_weights), freeze=True
+                )
+                input_size = self.embedding_dim
             else:
                 # Learned embedding
                 self.embedding = nn.Embedding(
                     num_embeddings=dataset.vocab_size,
                     embedding_dim=self.embedding_dim,
                 )
-                input_size = self.embedding_dim                      
+                input_size = self.embedding_dim
         else:
             # Assume input is already one-hot encoded
             input_size = dataset.vocab_size
@@ -106,14 +104,11 @@ class RNN(nn.Module):
             # Add the generated word index to the list of words
             words.append(dataset.index_to_word[word_index])
 
-        # Decode BPE tokens back to text if BPE was used 
+        # Decode BPE tokens back to text if BPE was used
         if dataset.use_bpe:
             words = dataset.bpe_model.decode(words)
 
         return words
-
-
-
 
 
 if __name__ == "__main__":
@@ -133,22 +128,18 @@ if __name__ == "__main__":
     folder_path = ROOT / "Data" / "txt" / "harry_potter.txt"
 
     dataset = Dataset(
-        folder_path=folder_path, 
-        sequence_length=25, 
-        mode="word", 
-        word2vec=True, 
-        embedding_dim=100, 
-        use_bpe=True, 
-        bpe_vocab_size=5000
+        folder_path=folder_path,
+        sequence_length=25,
+        mode="word",
+        word2vec=True,
+        embedding_dim=100,
+        use_bpe=True,
+        bpe_vocab_size=5000,
     )
 
     #   TRAIN
     model = RNN(
-        dataset,
-        hidden_dim=100,
-        num_layers=1,
-        dropout=0.0,
-        nonlinearity="tanh"
+        dataset, hidden_dim=100, num_layers=1, dropout=0.0, nonlinearity="tanh"
     ).to(device)
 
     list_text = model.generate(
@@ -156,11 +147,11 @@ if __name__ == "__main__":
         device=device,
         text="This is a test to make sure that",
         total_length=100,
-        nucleus_sampling=0.5
+        nucleus_sampling=0.5,
     )
     if dataset.use_bpe:
         print(list_text)
-    else : 
+    else:
         print(" ".join(list_text))
 
     print(model)
