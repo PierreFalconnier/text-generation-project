@@ -53,7 +53,6 @@ class DatasetText(torch.utils.data.Dataset):
     def load_words(self):
         with open(self.folder_path, "r", encoding="utf-8") as file:
             text = file.read()
-            text = text.decode("utf-8")
         if self.mode == "word":
             if self.word2vec:
                 return self.sentences.custom_tokenizer(text)
