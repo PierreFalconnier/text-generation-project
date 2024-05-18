@@ -26,9 +26,9 @@ class DatasetText(torch.utils.data.Dataset):
         self.use_bpe = use_bpe  
         self.bpe_vocab_size = bpe_vocab_size
 
-        self.words = self.load_words()
 
         if self.use_bpe: # Handle BPE separately because of minor differences in the method
+            self.words = self.load_words()
             self.bpe_model = self.train_bpe()
             text = copy.copy(self.words)
             self.words = self.apply_bpe(text)
@@ -52,8 +52,9 @@ class DatasetText(torch.utils.data.Dataset):
                     ns_exponent=0.75,
                 )
                 self.wv = model.wv
-
             
+            self.words = self.load_words()
+
             self.uniq_words = self.get_uniq_words()
             self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
             self.word_to_index = {word: index for index, word in enumerate(self.uniq_words)}
