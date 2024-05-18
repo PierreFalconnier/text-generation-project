@@ -214,7 +214,12 @@ if __name__ == "__main__":
             total_length=10000,
             temperature=args.temperature,
         )
-        text = joiner_str.join(list_text[len(init_text) :])
+        if args.use_bpe:
+            print(list_text)
+            text = list_text
+        else:
+            text = joiner_str.join(list_text[len(init_text) :])
+            print(text)
         misspelling_percentage = calculate_misspelling_percentage(text)
 
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
@@ -266,6 +271,10 @@ if __name__ == "__main__":
             optimizer.step()
             test_loss += loss.item()
     test_loss /= len(test_dataloader)
+
+    # Ensure the Saved_results directory exists
+    SAVED_RESULTS_DIR = ROOT / "Run" / "Results" / "Saved_results"
+    SAVED_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     with open(str(ROOT / "Run" / "Results" / "Saved_results" / name), "w") as file:
         print(f"Best val loss:", file=file)
