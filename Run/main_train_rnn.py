@@ -210,11 +210,9 @@ if __name__ == "__main__":
             nucleus_sampling=False,
         )
         if args.use_bpe:
-            print(list_text)
             text = list_text
         else:
             text = joiner_str.join(list_text[len(init_text) :])
-            print(text)
         misspelling_percentage = calculate_misspelling_percentage(text)
 
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
