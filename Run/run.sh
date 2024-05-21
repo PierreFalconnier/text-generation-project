@@ -70,4 +70,4 @@
 
 #  INFERENCE
 
-/bin/python3.10 /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/inference_lstm.py --epochs 200 --batch-size 64 --hidden-dim 1024 --num-layer 2 --nucleous True --top-p 0.75
+/bin/python3.10 /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/inference_lstm.py --epochs 200 --batch-size 64 --hidden-dim 1024 --num-layer 2 --nucleous True --top-p 0.9
