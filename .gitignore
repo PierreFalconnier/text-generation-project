@@ -11,7 +11,7 @@ Run/run.sh
 *.pyc
 Run/add_missing_metrics_lstm.py
 Run/add_missing_metrics_rnn.py
-
+Run/run.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
