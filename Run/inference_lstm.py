@@ -6,7 +6,7 @@ if __name__ == "__main__":
     from pathlib import Path
     from misspelling_percentage import calculate_misspelling_percentage
 
-    torch.manual_seed(42)
+    # torch.manual_seed(42)
     parser = argparse.ArgumentParser()
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--nucleous", type=bool, default=False)
@@ -14,16 +14,12 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--sequence-length", type=int, default=100)
-    parser.add_argument("--embedding-dim", type=int, default=0)
     parser.add_argument("--hidden-dim", type=int, default=1024)
     parser.add_argument("--num-layers", type=int, default=1)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
-    parser.add_argument("--dropout", type=float, default=0)
 
     args = parser.parse_args()
-    if args.embedding_dim == 0:
-        args.embedding_dim = None
     print(args)
 
     # IMPORTATIONS
@@ -47,15 +43,13 @@ if __name__ == "__main__":
         + "_"
         + str(args.sequence_length)
         + "_"
-        + str(args.embedding_dim)
-        + "_"
         + str(args.lr)[2:]
         + "_"
         + str(args.num_layers)
         + "_"
         + str(args.hidden_dim)
         + "_"
-        + str(args.dataset)
+        + str(args.dataset[:-4])
     )
 
     SAVED_MODEL_DIR = Path(name) / "best_model.pt"
@@ -73,11 +67,9 @@ if __name__ == "__main__":
 
     # MODEL
     model = LSTM(
-        vocab_size=dataset.vocab_size,
+        dataset=dataset,
         hidden_dim=args.hidden_dim,
-        embedding_dim=args.embedding_dim,
         num_layers=args.num_layers,
-        dropout=args.dropout,
     ).to(device)
 
     state_dict = torch.load(SAVED_MODEL_DIR)
@@ -85,12 +77,12 @@ if __name__ == "__main__":
 
     # INFERENCE
 
-    init_text = "Where are you?"
+    init_text = '"Where are you?"'
     list_text = model.generate(
         dataset,
         device=device,
         text=init_text,
-        total_length=10000,
+        total_length=400,
         temperature=args.temperature,
         nucleus_sampling=args.nucleous,
         top_p=args.top_p,

@@ -1,19 +1,65 @@
+"""
+Full definition of a GPT Language Model, all of it in this single file.
+References:
+1) the official GPT-2 TensorFlow implementation released by OpenAI:
+https://github.com/openai/gpt-2/blob/master/src/model.py
+2) huggingface/transformers PyTorch implementation:
+https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
+"""
+
+import math
+import inspect
+from dataclasses import dataclass
+
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+from torch.nn import TransformerEncoderLayer, TransformerEncoder
 import numpy as np
-import torch.nn.functional as F
 
 
-class RNN(nn.Module):
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=2000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        x = x + self.pe[:, : x.size(1), :]
+        return self.dropout(x)
+
+
+class TransformerModel(nn.Module):
     def __init__(
-        self, dataset, hidden_dim=100, num_layers=1, dropout=0.0, nonlinearity="tanh"
+        self,
+        dataset,
+        nhead=8,
+        dim_feedforward=2048,
+        dropout=0.1,
+        activation="relu",
+        num_layers=1,
     ):
-        super(RNN, self).__init__()
+        super(TransformerModel, self).__init__()
 
-        self.hidden_dim = hidden_dim
         self.embedding_dim = dataset.embedding_dim
+        self.nhead = nhead
+        self.dim_feedforward = dim_feedforward
+        self.drop_out = dropout
         self.num_layers = num_layers
+        self.activation = activation
 
+        # NEED TO ADD A POSITION REPRESENTATION SOMEWHERE, IN THE DATASET CLASS?
+
+        # EMBEDDING (MODEL DIM)
         if self.embedding_dim is not None:
             if dataset.word2vec:
                 embedding_weights = np.zeros((dataset.vocab_size, self.embedding_dim))
@@ -34,24 +80,27 @@ class RNN(nn.Module):
             # Assume input is already one-hot encoded
             input_size = dataset.vocab_size
 
-        self.rnn = nn.RNN(
-            input_size=input_size,
-            hidden_size=self.hidden_dim,
-            num_layers=self.num_layers,
+        self.input_size = input_size
+
+        self.positional_encoding = PositionalEncoding(input_size, dropout)
+
+        self.decoder_layer = TransformerEncoderLayer(
+            d_model=input_size,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
             dropout=dropout,
-            nonlinearity=nonlinearity,
+            activation=activation,
             batch_first=True,
         )
-        self.fc = nn.Linear(self.hidden_dim, dataset.vocab_size)
+        self.transformer_decoder = TransformerEncoder(self.decoder_layer, num_layers)
+        self.fc = nn.Linear(input_size, dataset.vocab_size)
 
-    def forward(self, x, prev_state):
+    def forward(self, x):
         embed = self.embedding(x) if self.embedding_dim is not None else x
-        output, state = self.rnn(embed, prev_state)
-        logits = self.fc(output)
-        return logits, state
-
-    def init_state(self, batch_size):
-        return torch.zeros(self.num_layers, batch_size, self.hidden_dim)
+        embed = self.positional_encoding(embed)
+        embed = self.transformer_decoder(embed)
+        logits = self.fc(embed)
+        return logits
 
     def generate(
         self,
@@ -65,6 +114,7 @@ class RNN(nn.Module):
     ):
         self.eval()
 
+        # Tokenize input text using BPE if enabled
         if dataset.use_bpe:
             words = dataset.bpe_model.encode(text, out_type=str)
         else:
@@ -78,15 +128,13 @@ class RNN(nn.Module):
             else:
                 raise NotImplementedError
 
-        state_h = self.init_state(1).to(device)
-
-        for i in range(0, total_length):
+        for i in range(total_length):
             x = torch.tensor([[dataset.word_to_index[w] for w in words[i:]]]).to(device)
 
             if self.embedding_dim is None:
                 x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
-            y_pred, state_h = self(x, state_h)  # B, sequence_length, vocabsize
+            y_pred = self(x)
 
             last_word_logits = y_pred[0][-1] / temperature
             probs = torch.nn.functional.softmax(last_word_logits, dim=0)
@@ -105,10 +153,10 @@ class RNN(nn.Module):
                 sorted_probs /= sorted_probs.sum()
                 sampled_index = torch.multinomial(sorted_probs, 1).item()
                 word_index = sorted_indices[sampled_index].item()
+
             else:
                 word_index = torch.multinomial(probs, 1).item()
 
-            # Add the generated word index to the list of words
             words.append(dataset.index_to_word[word_index])
 
         # Decode BPE tokens back to text if BPE was used
@@ -127,6 +175,7 @@ if __name__ == "__main__":
     if str(ROOT) not in sys.path:
         sys.path.append(str(ROOT))
     from Dataset.DatasetText import DatasetText as Dataset
+    from torch.utils.data import DataLoader
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -138,16 +187,15 @@ if __name__ == "__main__":
         folder_path=folder_path,
         sequence_length=25,
         mode="word",
-        word2vec=True,
-        embedding_dim=100,
-        use_bpe=True,
-        bpe_vocab_size=5000,
+        # word2vec=True,
+        embedding_dim=384,
+        # use_bpe=True,
+        # bpe_vocab_size=5000,
     )
+    datalaoder = DataLoader(dataset, batch_size=2)
 
     #   TRAIN
-    model = RNN(
-        dataset, hidden_dim=100, num_layers=1, dropout=0.0, nonlinearity="tanh"
-    ).to(device)
+    model = TransformerModel(dataset=dataset, nhead=6, num_layers=6).to(device)
 
     list_text = model.generate(
         dataset,
@@ -161,6 +209,16 @@ if __name__ == "__main__":
     else:
         print(" ".join(list_text))
 
-    print(model)
+    # print(model)
     print("Trainable parameters:")
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+
+    #
+
+    x, _ = next(iter(datalaoder))
+    x = x.to(device)
+
+    y = model(x)
+
+    print(y)
+    print(y.shape)
