@@ -70,4 +70,8 @@
 
 #  INFERENCE
 
-/bin/python3.10 /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/inference_lstm.py --epochs 200 --batch-size 64 --hidden-dim 1024 --num-layer 2 --nucleous True --top-p 0.9
+# /bin/python3.10 /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/inference_lstm.py --epochs 200 --batch-size 64 --hidden-dim 1024 --num-layer 2 --nucleous True --top-p 0.9
+
+# python /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/main_train_lstm.py --hidden-dim 2048 --num-layers 2 --lr 0.001 --sequence-length 35 --dataset goblet_book.txt --batch-size 1
+
+python /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/main_train_transformer.py 
