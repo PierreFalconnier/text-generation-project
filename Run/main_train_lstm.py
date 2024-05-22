@@ -211,10 +211,13 @@ if __name__ == "__main__":
             dataset,
             device=device,
             text=init_text,
-            total_length=10000,
+            total_length=1000,
             temperature=args.temperature,
         )
-        text = joiner_str.join(list_text[len(init_text) :])
+        if args.use_bpe:
+            text = list_text
+        else:
+            text = joiner_str.join(list_text[len(init_text) :])
         misspelling_percentage = calculate_misspelling_percentage(text)
 
         writer.add_scalars("loss", {"train": train_loss, "val": val_loss}, epoch)
@@ -265,6 +268,10 @@ if __name__ == "__main__":
             loss = criterion(y_pred.permute(0, 2, 1), y)
             test_loss += loss.item()
     test_loss /= len(test_dataloader)
+
+    # Ensure the Saved_results directory exists
+    SAVED_RESULTS_DIR = ROOT / "Run" / "Results" / "Saved_results"
+    SAVED_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     with open(str(ROOT / "Run" / "Results" / "Saved_results" / name), "w") as file:
         print(f"Best val loss:", file=file)

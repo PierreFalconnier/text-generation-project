@@ -4,6 +4,7 @@ from collections import Counter
 from gensim.models.word2vec import Word2Vec
 from Dataset.utils import MySentences
 import sentencepiece as spm
+import copy
 
 
 class DatasetText(torch.utils.data.Dataset):
@@ -22,38 +23,50 @@ class DatasetText(torch.utils.data.Dataset):
         self.mode = mode
         self.word2vec = word2vec
         self.embedding_dim = embedding_dim
-        self.use_bpe = use_bpe  # Use_bpe works only with word mode & can be coupled to learning an embedding
+        self.use_bpe = use_bpe  
         self.bpe_vocab_size = bpe_vocab_size
 
-        if word2vec:
-            self.sentences = MySentences(folder_path)
-            self.embedding_dim = 100 if embedding_dim is None else embedding_dim
-            model = Word2Vec(
-                sentences=self.sentences,
-                vector_size=self.embedding_dim,
-                window=5,
-                min_count=1,
-                sg=1,
-                negative=5,
-                ns_exponent=0.75,
-            )
-            self.wv = model.wv
 
-        self.words = self.load_words()
-        if self.use_bpe:
+        if self.use_bpe: # Handle BPE separately because of minor differences in the method
+            self.words = self.load_words()
             self.bpe_model = self.train_bpe()
-            self.words = self.apply_bpe(self.words)
-            self.words = [item for sublist in self.words for item in sublist]
-        self.uniq_words = self.get_uniq_words()
-        self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
-        self.word_to_index = {word: index for index, word in enumerate(self.uniq_words)}
-        self.words_indexes = [self.word_to_index[w] for w in self.words]
-        self.vocab_size = len(self.uniq_words)
+            text = copy.copy(self.words)
+            self.words = self.apply_bpe(text)
+            self.vocab_size = self.bpe_model.get_piece_size()
+            self.word_to_index = {self.bpe_model.id_to_piece(i): i for i in range(self.vocab_size)}
+            self.index_to_word = {i: self.bpe_model.id_to_piece(i) for i in range(self.vocab_size)}
+            self.uniq_words = list(self.word_to_index.keys())
+            self.words_indexes = self.bpe_model.encode(text, out_type=int)
+        
+        else :
+            if word2vec:
+                self.sentences = MySentences(folder_path)
+                self.embedding_dim = 100 if embedding_dim is None else embedding_dim
+                model = Word2Vec(
+                    sentences=self.sentences,
+                    vector_size=self.embedding_dim,
+                    window=5,
+                    min_count=1,
+                    sg=1,
+                    negative=5,
+                    ns_exponent=0.75,
+                )
+                self.wv = model.wv
+            
+            self.words = self.load_words()
+
+            self.uniq_words = self.get_uniq_words()
+            self.index_to_word = {index: word for index, word in enumerate(self.uniq_words)}
+            self.word_to_index = {word: index for index, word in enumerate(self.uniq_words)}
+            self.words_indexes = [self.word_to_index[w] for w in self.words]
+            self.vocab_size = len(self.uniq_words)
 
     def load_words(self):
         with open(self.folder_path, "r", encoding="utf-8") as file:
             text = file.read()
-        if self.mode == "word":
+        if self.use_bpe:
+            return text
+        elif self.mode == "word":
             if self.word2vec:
                 return self.sentences.custom_tokenizer(text)
             else:
@@ -123,6 +136,12 @@ if __name__ == "__main__":
     print(dataset[0][0])
     print("".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
     print("".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+
+    # If use_bpe is true : 
+    #print(dataset.bpe_model.decode([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
+    #print(dataset.bpe_model.decode([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+
+
 
     # print("".join(dataset.words))
     print(dataset.uniq_words)
