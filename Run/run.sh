@@ -74,4 +74,4 @@
 
 # python /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/main_train_lstm.py --hidden-dim 2048 --num-layers 2 --lr 0.001 --sequence-length 35 --dataset goblet_book.txt --batch-size 1
 
-python /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/main_train_transformer.py 
+python /home/pierre/Documents/kth/Deep_Learning_in_data_science_DD2424/text-generation-project/Run/main_train_transformer.py --pos-encoding attention_is_all_you_need 
