@@ -17,15 +17,16 @@ torch.manual_seed(42)
 if __name__ == "__main__":
 
     # Hyperparams
+    # default used by nanoGPT for baby gpt on shakespeare
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-iters", type=int, default=600000)
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--max-iters", type=int, default=5000)
+    parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--sequence-length", type=int, default=256)
     parser.add_argument("--embedding-dim", type=int, default=384)
-    parser.add_argument("--num-heads", type=int, default=6)
-    parser.add_argument("--num-layers", type=int, default=6)
-    parser.add_argument("--dropout", type=float, default=0)
-    parser.add_argument("--lr", type=float, default=6e-4)
+    parser.add_argument("--num-heads", type=int, default=8)
+    parser.add_argument("--num-layers", type=int, default=8)
+    parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
     parser.add_argument("--mode", type=str, default="character")
@@ -33,8 +34,8 @@ if __name__ == "__main__":
     parser.add_argument("--use_bpe", type=bool, default=False)
     parser.add_argument("--bpe_vocab_size", type=int, default=10000)
 
-    parser.add_argument("--log-interval-train", type=int, default=100)
-    parser.add_argument("--log-interval-val", type=int, default=1000)
+    parser.add_argument("--log-interval-train", type=int, default=10)
+    parser.add_argument("--log-interval-val", type=int, default=250)
 
     args = parser.parse_args()
     if args.embedding_dim == 0:
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     # DATALOADERS
     train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True
+        train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True
     )
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size)
@@ -142,7 +143,7 @@ if __name__ == "__main__":
     # OPTIMIZER
     weight_decay = 1e-1
     beta1 = 0.9
-    beta2 = 0.95
+    beta2 = 0.99
     grad_clip = 1.0  # clip gradients at this value, or disable if == 0.0
 
     optimizer = configure_optimizers(
@@ -155,7 +156,7 @@ if __name__ == "__main__":
 
     # SCHEDULER
     # learning rate decay settings
-    warmup_iters = 2000  # how many steps to warm up for
+    warmup_iters = 100  # how many steps to warm up for
     lr_decay_iters = args.max_iters
     min_lr = args.lr / 10
 
@@ -173,22 +174,21 @@ if __name__ == "__main__":
     SAVED_MODEL_DIR = ROOT / "Run" / "Results" / "Saved_models" / name
     SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    early_stopping_tol = 5  # num of steps
+    early_stopping_tol = 750  # num of steps
     prev_val_loss = float("inf")
     counter = 0
 
     step = 0
+    model.train()
+
+    first_val_batch = next(iter(val_dataloader))
+
     with tqdm(total=args.max_iters) as pbar:
 
         while step < args.max_iters:
-            model.train()
-            train_loss = 0.0
 
             for x, y in train_dataloader:
                 x, y = x.to(device), y.to(device)
-
-                if model.embedding_dim is None:
-                    x = F.one_hot(x, num_classes=dataset.vocab_size).float()
 
                 optimizer.zero_grad()
                 y_pred = model(x)
@@ -220,17 +220,16 @@ if __name__ == "__main__":
 
                     model.eval()
 
-                    # val loss
+                    # val loss on the first val batch
+
                     with torch.no_grad():
-                        val_loss = 0.0
-                        for x, y in val_dataloader:
-                            x, y = x.to(device), y.to(device)
-                            if model.embedding_dim is None:
-                                x = F.one_hot(x, num_classes=dataset.vocab_size).float()
-                            y_pred = model(x)
-                            loss = criterion(y_pred.permute(0, 2, 1), y)
-                            val_loss += loss.item()
-                    val_loss /= len(val_dataloader)
+                        x, y = first_val_batch
+                        x, y = x.to(device), y.to(device)
+                        if model.embedding_dim is None:
+                            x = F.one_hot(x, num_classes=dataset.vocab_size).float()
+                        y_pred = model(x)
+                        loss = criterion(y_pred.permute(0, 2, 1), y)
+                        val_loss = loss.item()
 
                     # generation
                     init_text = '"Where are you?"'
@@ -245,9 +244,6 @@ if __name__ == "__main__":
                     misspelling_percentage = calculate_misspelling_percentage(text)
 
                     # logs
-                    writer.add_scalars(
-                        "loss", {"train": train_loss, "val": val_loss}, step
-                    )
                     writer.add_scalar(
                         "val_loss_step",
                         val_loss,
@@ -272,9 +268,9 @@ if __name__ == "__main__":
                     else:
                         counter += 1
 
-                    if counter == early_stopping_tol:
-                        print("stopped early")
-                        break
+                    # if counter == early_stopping_tol:
+                    #     print("stopped early")
+                    #     break
 
                     prev_val_loss = val_loss
 
