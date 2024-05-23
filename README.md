@@ -7,14 +7,14 @@ Folder where the data are actually stored.
 
 ### Folder "Dataset"
 
-python scripts of the different datasets' classes using the standard from https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
+Python script of the dataset class using the standard from https://pytorch.org/tutorials/beginner/basics/data_tutorial.html.
 
 ### Folder "Models"
 
-python scripts of the different methods, node classifiaction and link prediction.
+Python scripts of the different models, including RNN, LSTM and Decoder-Only Transformer.
 
 ### Folder "Run"
 
-scripts to train models and run evaluations.
+Python scripts to train models and run evaluations.
 
 
