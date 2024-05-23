@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--word2vec", type=bool, default=False)
     parser.add_argument("--use_bpe", type=bool, default=False)
     parser.add_argument("--bpe_vocab_size", type=int, default=10000)
+    parser.add_argument("--pos-encoding", type=str, default="learnt")
 
     parser.add_argument("--log-interval-train", type=int, default=10)
     parser.add_argument("--log-interval-val", type=int, default=250)
@@ -85,10 +86,16 @@ if __name__ == "__main__":
 
     # DATALOADERS
     train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        drop_last=True,
+        num_workers=6,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=6)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=args.batch_size, num_workers=6
+    )
 
     # LOGGER
     name = Path(__file__).name[:-3]
@@ -113,6 +120,8 @@ if __name__ == "__main__":
         + str(args.word2vec)
         + "_"
         + str(args.use_bpe)
+        + "_"
+        + str(args.pos_encoding)
     )
     LOG_DIR = ROOT / "Run" / "Results" / "Logs" / name
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -126,6 +135,7 @@ if __name__ == "__main__":
         "num_heads": args.num_heads,
         "num_layers": args.num_layers,
         "architecture": "Transformer",
+        "pos_encoding": args.pos_encoding,
     }
 
     #   TRAIN
@@ -134,6 +144,7 @@ if __name__ == "__main__":
         nhead=args.num_heads,
         num_layers=args.num_layers,
         dropout=args.dropout,
+        pos_encoding=args.pos_encoding,
     ).to(device)
 
     # print(model)
@@ -146,7 +157,8 @@ if __name__ == "__main__":
     weight_decay = 1e-1
     beta1 = 0.9
     beta2 = 0.99
-    grad_clip = 1.0  # clip gradients at this value, or disable if == 0.0
+    # grad_clip = 1.0
+    grad_clip = 5.0
 
     optimizer = configure_optimizers(
         model=model,
