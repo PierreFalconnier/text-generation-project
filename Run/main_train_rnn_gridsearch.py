@@ -53,10 +53,14 @@ if __name__ == "__main__":
     # DATASET
     folder_path = ROOT / "Data" / "txt" / args.dataset
     dataset = Dataset(
-        folder_path=folder_path, sequence_length=args.sequence_length, mode=args.mode, word2vec=args.word2vec, embedding_dim=args.embedding_dim
+        folder_path=folder_path,
+        sequence_length=args.sequence_length,
+        mode=args.mode,
+        word2vec=args.word2vec,
+        embedding_dim=args.embedding_dim,
     )
     if args.mode == "word":
-        joiner_str = " " # more post-processing will be needed
+        joiner_str = " "  # more post-processing will be needed
     elif args.mode == "character":
         joiner_str = ""
 
@@ -252,7 +256,6 @@ if __name__ == "__main__":
                         x = F.one_hot(x, num_classes=dataset.vocab_size).float()
                     y_pred, state_h_val = model(x, state_h_val)
                     loss = criterion(y_pred.permute(0, 2, 1), y)
-                    optimizer.step()
                     test_loss += loss.item()
             test_loss /= len(test_dataloader)
 

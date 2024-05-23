@@ -272,7 +272,6 @@ if __name__ == "__main__":
                 x = F.one_hot(x, num_classes=dataset.vocab_size).float()
             y_pred, (state_h_val, state_c_val) = model(x, (state_h_val, state_c_val))
             loss = criterion(y_pred.permute(0, 2, 1), y)
-            optimizer.step()
             test_loss += loss.item()
     test_loss /= len(test_dataloader)
 

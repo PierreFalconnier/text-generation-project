@@ -92,10 +92,17 @@ class RNN(nn.Module):
             if nucleus_sampling:
                 sorted_probs, sorted_indices = torch.sort(probs, descending=True)
                 cumulative_probs = torch.cumsum(sorted_probs, dim=0)
-                sorted_indices_to_remove = cumulative_probs > top_p
-                sorted_probs[sorted_indices_to_remove] = 0.0
-                sorted_probs /= sorted_probs.sum()  # normalize
-                word_index = torch.multinomial(sorted_probs, 1).item()
+
+                if torch.all(cumulative_probs > top_p):
+                    sorted_probs.fill_(0.0)
+                    sorted_probs[0] = 1.0
+                else:
+                    sorted_indices_to_remove = cumulative_probs > top_p
+                    sorted_probs[sorted_indices_to_remove] = 0.0
+
+                sorted_probs /= sorted_probs.sum()
+                sampled_index = torch.multinomial(sorted_probs, 1).item()
+                word_index = sorted_indices[sampled_index].item()
             else:
                 word_index = torch.multinomial(probs, 1).item()
 
