@@ -2,6 +2,8 @@ from pathlib import Path
 import torch
 import sys
 import argparse
+import re
+import string
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, random_split
 from torch import nn, optim
@@ -240,7 +242,14 @@ if __name__ == "__main__":
                         total_length=10000,
                         temperature=args.temperature,
                     )
-                    text = joiner_str.join(list_text[len(init_text) :])
+                    if args.use_bpe:
+                        text = list_text
+                    elif args.mode=='word':
+                        text = joiner_str.join(list_text[len(init_text) :])
+                        pattern = r"\s*([{}])\s*".format(re.escape(string.punctuation))
+                        text = re.sub(pattern, r"\1 ", text)
+                    else:
+                        text = joiner_str.join(list_text[len(init_text) :])
                     misspelling_percentage = calculate_misspelling_percentage(text)
 
                     # logs

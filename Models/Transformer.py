@@ -1,6 +1,7 @@
 import math
 import inspect
 from dataclasses import dataclass
+from Dataset.utils import custom_tokenizer
 
 import torch
 import torch.nn as nn
@@ -153,10 +154,7 @@ class TransformerModel(nn.Module):
             words = dataset.bpe_model.encode(text, out_type=str)
         else:
             if dataset.mode == "word":
-                if dataset.word2vec:
-                    words = dataset.sentences.custom_tokenizer(text)
-                else:
-                    words = text.split()
+                words = custom_tokenizer(text)
             elif dataset.mode == "character":
                 words = list(text)
             else:

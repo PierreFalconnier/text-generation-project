@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from collections import Counter
 from gensim.models.word2vec import Word2Vec
-from Dataset.utils import MySentences
+from Dataset.utils import MySentences, custom_tokenizer
 import sentencepiece as spm
 import copy
 
@@ -67,10 +67,7 @@ class DatasetText(torch.utils.data.Dataset):
         if self.use_bpe:
             return text
         elif self.mode == "word":
-            if self.word2vec:
-                return self.sentences.custom_tokenizer(text)
-            else:
-                return text.split()
+            return custom_tokenizer(text)
         elif self.mode == "character":
             return list(text)
         else:
@@ -128,20 +125,18 @@ if __name__ == "__main__":
         folder_path=folder_path,
         sequence_length=100,
         mode="word",
-        word2vec=False,
-        use_bpe=True,
+        word2vec=True,
+        use_bpe=False,
         bpe_vocab_size=5000,
     )
 
     print(dataset[0][0])
-    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
-    print("".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
+    print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
+    print(" ".join([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
 
     # If use_bpe is true : 
     #print(dataset.bpe_model.decode([dataset.index_to_word[i.item()] for i in dataset[0][0]]))
     #print(dataset.bpe_model.decode([dataset.index_to_word[i.item()] for i in dataset[0][1]]))
 
-
-
     # print("".join(dataset.words))
-    print(dataset.uniq_words)
+    # print(dataset.uniq_words)

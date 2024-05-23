@@ -8,6 +8,8 @@ from torch import nn, optim
 import torch.nn.functional as F
 from tqdm import tqdm
 from misspelling_percentage import calculate_misspelling_percentage
+import re
+import string
 
 torch.manual_seed(42)
 
@@ -16,17 +18,17 @@ if __name__ == "__main__":
     # Hyperparams
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--sequence-length", type=int, default=100)
-    parser.add_argument("--embedding-dim", type=int, default=0)
-    parser.add_argument("--hidden-dim", type=int, default=1024)
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--sequence-length", type=int, default=35)
+    parser.add_argument("--embedding-dim", type=int, default=200)
+    parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--num-layers", type=int, default=1)
     parser.add_argument("--dropout", type=float, default=0)
     parser.add_argument("--optim", type=str, default="adam")
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
-    parser.add_argument("--mode", type=str, default="character")
+    parser.add_argument("--mode", type=str, default="word")
     parser.add_argument("--word2vec", type=bool, default=False)
     parser.add_argument("--use_bpe", type=bool, default=False)  # Add use_bpe parameter
     parser.add_argument(
@@ -94,7 +96,7 @@ if __name__ == "__main__":
         + "_"
         + str(args.sequence_length)
         + "_"
-        + str(args.lr)[2:]
+        + str(args.lr)
         + "_"
         + str(args.num_layers)
         + "_"
@@ -216,6 +218,10 @@ if __name__ == "__main__":
         )
         if args.use_bpe:
             text = list_text
+        elif args.mode=='word':
+            text = joiner_str.join(list_text[len(init_text) :])
+            pattern = r"\s*([{}])\s*".format(re.escape(string.punctuation))
+            text = re.sub(pattern, r"\1 ", text)
         else:
             text = joiner_str.join(list_text[len(init_text) :])
         misspelling_percentage = calculate_misspelling_percentage(text)
