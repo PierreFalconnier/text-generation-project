@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+from Dataset.utils import custom_tokenizer
 
 
 class RNN(nn.Module):
@@ -69,10 +70,7 @@ class RNN(nn.Module):
             words = dataset.bpe_model.encode(text, out_type=str)
         else:
             if dataset.mode == "word":
-                if dataset.word2vec:
-                    words = dataset.sentences.custom_tokenizer(text)
-                else:
-                    words = text.split()
+                words = custom_tokenizer(text)
             elif dataset.mode == "character":
                 words = list(text)
             else:
@@ -131,9 +129,9 @@ if __name__ == "__main__":
         folder_path=folder_path,
         sequence_length=25,
         mode="word",
-        word2vec=True,
+        word2vec=False,
         embedding_dim=100,
-        use_bpe=True,
+        use_bpe=False,
         bpe_vocab_size=5000,
     )
 
@@ -147,7 +145,7 @@ if __name__ == "__main__":
         device=device,
         text="This is a test to make sure that",
         total_length=100,
-        nucleus_sampling=0.5,
+        nucleus_sampling=0,
     )
     if dataset.use_bpe:
         print(list_text)
