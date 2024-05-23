@@ -28,9 +28,8 @@ class PositionalEncoding(nn.Module):
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x):
-        x = x + self.pe[:, : x.size(1), :]
-        return self.dropout(x)
+    def forward(self, size):
+        return self.pe[:, :size, :]
 
 
 class TransformerModel(nn.Module):
@@ -41,9 +40,12 @@ class TransformerModel(nn.Module):
         dropout=0.1,
         activation="gelu",
         num_layers=1,
+        pos_encoding="learnt",
     ):
         super(TransformerModel, self).__init__()
 
+        assert pos_encoding in ["learnt", "attention_is_all_you_need"]
+        self.pos_encoding = pos_encoding
         self.dataset = dataset
         self.embedding_dim = dataset.embedding_dim
         self.nhead = nhead
@@ -74,11 +76,12 @@ class TransformerModel(nn.Module):
 
         self.d_model = d_model  # embedding size
 
-        # self.wpe = PositionalEncoding(
-        #     d_model, dropout, dataset.sequence_length
-        # )
-
-        self.wpe = nn.Embedding(dataset.sequence_length, d_model)
+        if pos_encoding == "learnt":
+            self.wpe = nn.Embedding(dataset.sequence_length, d_model)
+        elif pos_encoding == "attention_is_all_you_need":
+            self.wpe = PositionalEncoding(d_model, dropout, dataset.sequence_length)
+        else:
+            raise NotImplementedError
 
         self.decoder_layer = TransformerEncoderLayer(
             d_model=d_model,
@@ -113,7 +116,6 @@ class TransformerModel(nn.Module):
         assert (
             t <= self.dataset.sequence_length
         ), f"Cannot forward sequence of length {t}, block size is only {self.data.sequence_length}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device)  # shape (t)
 
         # forward
 
@@ -123,7 +125,12 @@ class TransformerModel(nn.Module):
             if self.embedding_dim is not None
             else F.one_hot(x, num_classes=self.dataset.vocab_size).float()
         )  # shape (b, t, n_embd)
-        pos_emb = self.wpe(pos)  # position embeddings of shape (t, n_embd)
+
+        if self.pos_encoding == "attention_is_all_you_need":
+            pos_emb = self.wpe(size=t)
+        elif self.pos_encoding == "learnt":
+            pos = torch.arange(0, t, dtype=torch.long, device=device)  # shape (t)
+            pos_emb = self.wpe(pos)  # position embeddings of shape (t, n_embd)
 
         # Pass the input and causal mask to the TransformerDecoder
         causal_mask = nn.Transformer.generate_square_subsequent_mask(t, device=device)
@@ -222,11 +229,24 @@ if __name__ == "__main__":
         mode="character",
         embedding_dim=384,
     )
-    datalaoder = DataLoader(dataset, batch_size=2)
+    datalaoder = DataLoader(dataset, batch_size=4)
 
     #   TRAIN
-    model = TransformerModel(dataset=dataset, nhead=6, num_layers=6).to(device)
+    model = TransformerModel(
+        dataset=dataset, nhead=6, num_layers=6, pos_encoding="attention_is_all_you_need"
+    ).to(device)
 
+    # inference
+    x, _ = next(iter(datalaoder))
+    x = x.to(device)
+
+    y = model(x)
+    print(y)
+    print(y.shape)
+    print(x.shape)
+    exit()
+
+    # generation
     list_text = model.generate(
         dataset,
         device=device,
@@ -238,14 +258,6 @@ if __name__ == "__main__":
     else:
         print("".join(list_text))
 
-    # # print(model)
+    # number params
     print("Trainable parameters:")
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
-
-    x, _ = next(iter(datalaoder))
-    x = x.to(device)
-
-    y = model(x)
-    print(y)
-    print(y.shape)
-    print(x.shape)

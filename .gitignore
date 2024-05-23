@@ -1,18 +1,16 @@
-**/*.pt
-**/*.npz
-**/*.zip
-**/*.png
-**/*.sh
+*.pt
+*.npz
+*.zip
+*.png
+*.sh
 Data/txt/*
 Run/Results/
-Run/run.sh
 **/__pycache__/
-*.pyc
 *.pyc
 Run/add_missing_metrics_lstm.py
 Run/add_missing_metrics_rnn.py
-**/run.sh
 **/bpe*
+**/run.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
