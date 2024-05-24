@@ -1,16 +1,6 @@
 
-# Organisation of the code
+# Text generation project
 
-### Folder "Dataset"
-
-Python script of the dataset class using the standard from https://pytorch.org/tutorials/beginner/basics/data_tutorial.html.
-
-### Folder "Models"
-
-Python scripts of the different models, including RNN, LSTM and Decoder-Only Transformer.
-
-### Folder "Run"
-
-Python scripts to train models and run evaluations.
+  This project investigates advancements in text generation models, comparing vanilla RNNs, LSTMs, and Transformers. Initially, we implemented and evaluated a vanilla RNN and one-layer and two-layer LSTM networks using character-level inputs. Subsequently, we explored tokenization techniques like Word2vec and Byte-Pair Encoding (BPE) to enhance LSTM performance. Finally, we implemented a decoder-only Transformer model. Our results indicate that while LSTMs outperform vanilla RNNs in capturing long-term dependencies, the Transformer model achieves superior performance, particularly in reducing misspelling rates. The best model utilized BPE with a vocabulary size of 5000 demonstrated improvements in text generation tasks.
 
 
