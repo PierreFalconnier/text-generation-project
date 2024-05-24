@@ -14,8 +14,8 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--sequence-length", type=int, default=100)
-    parser.add_argument("--hidden-dim", type=int, default=1024)
-    parser.add_argument("--num-layers", type=int, default=1)
+    parser.add_argument("--hidden-dim", type=int, default=2048)
+    parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--dataset", type=str, default="harry_potter.txt")
 

@@ -1,9 +1,14 @@
 from spellchecker import SpellChecker
+import string
 
 
 def calculate_misspelling_percentage(sentence):
     spell = SpellChecker()
-    words = sentence.split()
+    words = [
+        word.strip(string.punctuation)
+        for word in sentence.split()
+        if word.strip(string.punctuation).isalpha()
+    ]
     misspelled = spell.unknown(words)
     if len(words) == 0:
         return 0  # Avoid division by zero if the sentence is empty
